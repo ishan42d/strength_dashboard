@@ -436,32 +436,81 @@ function populateExerciseFormPicker() {
 }
 
 /* ─── SCHEDULE ─── */
+// Static workout plan - your structured weekly split
+const WORKOUT_PLAN = {
+  'Day 1': {
+    name: 'Push Day',
+    color: '--accent',
+    muscleGroups: ['Chest', 'Shoulders', 'Triceps'],
+    exercises: [
+      { name: 'Chest Press Machine', sets: 3, reps: '8-12' },
+      { name: 'Smith Machine Incline Press', sets: 3, reps: '8-12', note: 'Adjust bench to 30°' },
+      { name: 'Pec Deck / Seated Machine Fly', sets: 3, reps: '10-12' },
+      { name: 'Lateral Raises (Dumbbell or Cable)', sets: 3, reps: '12-15' },
+      { name: 'Cable Triceps Rope Pushdown', sets: 3, reps: '10-12' }
+    ]
+  },
+  'Day 2': {
+    name: 'Pull Day',
+    color: '--blue',
+    muscleGroups: ['Back', 'Biceps'],
+    exercises: [
+      { name: 'Lat Pulldown Machine', sets: 3, reps: '8-12' },
+      { name: 'Seated Cable Row', sets: 3, reps: '8-12' },
+      { name: 'Chest-Supported Machine Row', sets: 3, reps: '8-12' },
+      { name: 'Dumbbell or Rod Biceps Curl', sets: 3, reps: '8-12' }
+    ]
+  },
+  'Day 3': {
+    name: 'Arms & Core',
+    color: '--amber',
+    muscleGroups: ['Biceps', 'Triceps', 'Core'],
+    exercises: [
+      { name: 'Machine Preacher Curl', sets: 3, reps: '10-12' },
+      { name: 'Cable Biceps Hammer Curl', sets: 3, reps: '10-12', note: 'Rope attachment' },
+      { name: 'Seated Dip Machine', sets: 3, reps: '10-12' },
+      { name: 'Overhead Cable Triceps Extension', sets: 3, reps: '10-12' },
+      { name: 'Machine Ab Crunch or Cable Rope Crunch', sets: 3, reps: '12-15' }
+    ]
+  },
+  'Day 4': {
+    name: 'Legs + Rear Shoulders',
+    color: '--green',
+    muscleGroups: ['Legs', 'Rear Shoulders'],
+    exercises: [
+      { name: 'Lying or Seated Leg Curl Machine', sets: 3, reps: '10-12', note: 'Warms up knees first' },
+      { name: 'Seated Leg Press Machine', sets: 3, reps: '8-12' },
+      { name: 'Leg Extension Machine', sets: 3, reps: '10-12' },
+      { name: 'Seated Machine Calf Raise or Adductor', sets: 3, reps: '12-15' },
+      { name: 'Reverse Machine Fly or Cable Face Pulls', sets: 3, reps: '10-12', note: 'Targeting rear delts' }
+    ]
+  }
+};
+
 function renderSchedule() {
   const grid = document.getElementById('schedule-grid');
-  const days = [
-    { day: 'Day 1', workout: 'Push Day', color: '--accent' },
-    { day: 'Day 2', workout: 'Pull Day', color: '--blue' },
-    { day: 'Day 3', workout: 'Arms & Core', color: '--amber' },
-    { day: 'Day 4', workout: 'Legs & Rear Delts', color: '--green' }
-  ];
-
-  grid.innerHTML = days.map(d => {
-    const exercises = [...new Set(trainingData.filter(r => r.Workout === d.workout && r.Exercise).map(r => r.Exercise))].sort();
-    const muscleGroups = [...new Set(trainingData.filter(r => r.Workout === d.workout && r['Muscle Group']).map(r => r['Muscle Group']))].sort();
-
+  grid.innerHTML = Object.entries(WORKOUT_PLAN).map(([dayKey, day]) => {
     return `
-      <div class="schedule-card" style="border-left:4px solid var(${d.color})">
+      <div class="schedule-card" style="border-left:4px solid var(${day.color})">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
           <div>
-            <h4 style="font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:4px">${d.day}</h4>
-            <p style="font-size:0.8rem;color:var(--text-3);font-weight:500">${d.workout}</p>
+            <h4 style="font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:4px">${dayKey}</h4>
+            <p style="font-size:0.8rem;color:var(--text-3);font-weight:500">${day.name}</p>
           </div>
-          <span style="display:inline-block;padding:4px 8px;background:var(${d.color});background:linear-gradient(135deg,var(${d.color}),rgba(255,255,255,0.1));color:var(--text);font-size:0.65rem;font-weight:700;border-radius:4px;letter-spacing:0.05em">${exercises.length} ${exercises.length===1?'ex':'exs'}</span>
+          <span style="display:inline-block;padding:4px 8px;background:var(${day.color});background:linear-gradient(135deg,var(${day.color}),rgba(255,255,255,0.1));color:var(--text);font-size:0.65rem;font-weight:700;border-radius:4px;letter-spacing:0.05em">${day.exercises.length} exercises</span>
         </div>
-        <div style="display:grid;gap:8px">
-          ${exercises.map(e => `<div style="padding:8px 10px;background:var(--bg-input);border-radius:6px;border-left:2px solid var(${d.color});font-size:0.8rem;color:var(--text-2)">${e}</div>`).join('')}
+        <div style="display:grid;gap:10px">
+          ${day.exercises.map(ex => `
+            <div style="padding:10px;background:var(--bg-input);border-radius:6px;border-left:3px solid var(${day.color})">
+              <div style="font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:4px">${ex.name}</div>
+              <div style="font-size:0.75rem;color:var(--text-3);display:flex;gap:12px">
+                <span>📊 ${ex.sets} sets × ${ex.reps} reps</span>
+                ${ex.note ? `<span style="color:var(--text-4);font-style:italic">💡 ${ex.note}</span>` : ''}
+              </div>
+            </div>
+          `).join('')}
         </div>
-        ${muscleGroups.length ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-4);letter-spacing:0.05em">MUSCLE GROUPS: ${muscleGroups.join(', ')}</div>` : ''}
+        ${day.muscleGroups.length ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-4);letter-spacing:0.05em;font-weight:600">MUSCLE GROUPS: ${day.muscleGroups.join(', ')}</div>` : ''}
       </div>
     `;
   }).join('');
