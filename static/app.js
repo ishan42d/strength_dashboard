@@ -86,11 +86,15 @@ async function loadExercises() {
   try {
     const res = await fetch('/api/exercises');
     const data = await res.json();
+    console.log('[exercises] API response:', data);
     if (data && typeof data === 'object' && !data.error) {
       LOADED_EXERCISES = data;
+      console.log('[exercises] Loaded:', Object.keys(LOADED_EXERCISES));
+    } else {
+      console.warn('[exercises] API returned error or invalid data:', data);
     }
   } catch (e) {
-    console.error('Failed to load exercises:', e);
+    console.error('[exercises] Failed to load:', e);
   }
 }
 
@@ -114,12 +118,12 @@ async function loadData() {
 /* ─── OVERVIEW ─── */
 function renderOverview() {
   const completed = Array.isArray(trainingData) ? trainingData.filter(r => r.Date) : [];
+  const uniqueDates = new Set(completed.map(r => r.Date));
   const exercises = [...new Set(completed.map(r => r.Exercise))];
-  const totalVol = completed.reduce((s, r) => s + (r.Volume || 0), 0);
 
-  document.getElementById('stat-sessions').textContent = new Set(completed.map(r => r.Date)).size;
+  document.getElementById('stat-sessions').textContent = uniqueDates.size;
   document.getElementById('stat-exercises').textContent = exercises.length;
-  document.getElementById('stat-volume').textContent = totalVol > 1000 ? (totalVol / 1000).toFixed(1) + 'k' : Math.round(totalVol);
+  document.getElementById('stat-volume').textContent = uniqueDates.size + ' workouts';
 
   if (weightData.length) {
     const latest = weightData[weightData.length - 1];
@@ -129,7 +133,7 @@ function renderOverview() {
       const delta = latest.Weight - prev.Weight;
       const el = document.getElementById('stat-weight-delta');
       el.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' kg';
-      el.className = 'stat-delta ' + (delta > 0 ? 'positive' : delta < 0 ? 'negative' : '');
+      el.className = 'stat-delta ' + (delta > 0 ? 'negative' : delta < 0 ? 'positive' : '');
     }
   }
 
@@ -141,6 +145,29 @@ function renderOverview() {
     const el = document.getElementById('stat-steps-avg');
     el.textContent = 'avg ' + avg.toLocaleString() + '/day';
     el.className = 'stat-delta';
+  }
+
+  // Weight goal tracking
+  const weightGoal = parseFloat(localStorage.getItem('WEIGHT_GOAL')) || null;
+  if (weightGoal && weightData.length > 0) {
+    const currentWeight = parseFloat(weightData[weightData.length - 1].Weight);
+    const remaining = (weightGoal - currentWeight).toFixed(1);
+    const progress = ((currentWeight - weightData[0].Weight) / (weightGoal - weightData[0].Weight) * 100).toFixed(0);
+    
+    document.getElementById('stat-goal').textContent = weightGoal + ' kg';
+    const goalDelta = document.getElementById('stat-goal-delta');
+    
+    if (parseFloat(remaining) <= 0) {
+      goalDelta.textContent = '✅ GOAL REACHED!';
+      goalDelta.className = 'stat-delta positive';
+    } else if (parseFloat(remaining) > 0) {
+      goalDelta.textContent = remaining + ' kg to go (' + progress + '%)';
+      goalDelta.className = 'stat-delta ' + (progress >= 50 ? 'positive' : 'neutral');
+    }
+  } else if (!weightGoal) {
+    document.getElementById('stat-goal').textContent = '--';
+    document.getElementById('stat-goal-delta').textContent = 'Set goal';
+    document.getElementById('stat-goal-delta').className = 'stat-delta muted';
   }
 
   renderVolumeChart(completed);
@@ -498,6 +525,18 @@ const WORKOUT_PLAN = {
   }
 };
 
+// Load custom workout plan from localStorage if it exists
+const savedPlan = localStorage.getItem('WORKOUT_PLAN');
+if (savedPlan) {
+  try {
+    const parsed = JSON.parse(savedPlan);
+    Object.assign(WORKOUT_PLAN, parsed);
+    console.log('[schedule] Loaded custom workout plan from localStorage');
+  } catch (e) {
+    console.warn('[schedule] Failed to parse saved workout plan:', e);
+  }
+}
+
 function renderSchedule() {
   const grid = document.getElementById('schedule-grid');
   grid.innerHTML = Object.entries(WORKOUT_PLAN).map(([dayKey, day]) => {
@@ -511,20 +550,136 @@ function renderSchedule() {
           <span style="display:inline-block;padding:4px 8px;background:var(${day.color});background:linear-gradient(135deg,var(${day.color}),rgba(255,255,255,0.1));color:var(--text);font-size:0.65rem;font-weight:700;border-radius:4px;letter-spacing:0.05em">${day.exercises.length} exercises</span>
         </div>
         <div style="display:grid;gap:10px">
-          ${day.exercises.map(ex => `
-            <div style="padding:10px;background:var(--bg-input);border-radius:6px;border-left:3px solid var(${day.color})">
-              <div style="font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:4px">${ex.name}</div>
-              <div style="font-size:0.75rem;color:var(--text-3);display:flex;gap:12px">
-                <span>📊 ${ex.sets} sets × ${ex.reps} reps</span>
-                ${ex.note ? `<span style="color:var(--text-4);font-style:italic">💡 ${ex.note}</span>` : ''}
+          ${day.exercises.map((ex, idx) => `
+            <div style="padding:10px;background:var(--bg-input);border-radius:6px;border-left:3px solid var(${day.color});display:flex;justify-content:space-between;align-items:flex-start">
+              <div style="flex:1">
+                <div style="font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:4px">${ex.name}</div>
+                <div style="font-size:0.75rem;color:var(--text-3);display:flex;gap:12px">
+                  <span>${ex.sets} sets × ${ex.reps} reps</span>
+                  ${ex.note ? `<span style="color:var(--text-4);font-style:italic">💡 ${ex.note}</span>` : ''}
+                </div>
               </div>
+              <button onclick="editExercise('${dayKey}', ${idx})" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.9rem;padding:4px 8px;border-radius:4px;hover:background:var(--bg-input)">✏️</button>
             </div>
           `).join('')}
         </div>
+        <button onclick="addExercise('${dayKey}')" style="margin-top:12px;width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-3);border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:600">+ Add Exercise</button>
         ${day.muscleGroups.length ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-4);letter-spacing:0.05em;font-weight:600">MUSCLE GROUPS: ${day.muscleGroups.join(', ')}</div>` : ''}
       </div>
     `;
   }).join('');
+}
+
+function editExercise(dayKey, index) {
+  const day = WORKOUT_PLAN[dayKey];
+  const exercise = day.exercises[index];
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999';
+  modal.innerHTML = `
+    <div class="modal-content" style="width:90%;max-width:400px;background:var(--card-bg);border-radius:12px;padding:24px">
+      <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:16px">Edit Exercise</h3>
+      <div style="display:grid;gap:12px">
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600">Exercise Name</span>
+          <input type="text" id="edit-name" value="${exercise.name}" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        </label>
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600">Sets</span>
+          <input type="number" id="edit-sets" value="${exercise.sets}" min="1" max="10" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        </label>
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600">Reps (e.g., 8-12)</span>
+          <input type="text" id="edit-reps" value="${exercise.reps}" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        </label>
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600">Note (optional)</span>
+          <input type="text" id="edit-note" value="${exercise.note || ''}" placeholder="Form cue, tempo, etc." style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <button onclick="this.closest('.modal').remove()" style="padding:10px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600">Cancel</button>
+          <button id="save-edit" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  document.getElementById('save-edit').onclick = () => {
+    exercise.name = document.getElementById('edit-name').value.trim();
+    exercise.sets = parseInt(document.getElementById('edit-sets').value) || 3;
+    exercise.reps = document.getElementById('edit-reps').value.trim();
+    exercise.note = document.getElementById('edit-note').value.trim() || undefined;
+    saveWorkoutPlan();
+    refreshExerciseDropdowns();
+    renderSchedule();
+    modal.remove();
+  };
+}
+
+function addExercise(dayKey) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999';
+  modal.innerHTML = `
+    <div class="modal-content" style="width:90%;max-width:400px;background:var(--card-bg);border-radius:12px;padding:24px">
+      <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:16px">Add Exercise</h3>
+      <div style="display:grid;gap:12px">
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600">Exercise Name</span>
+          <input type="text" id="add-name" placeholder="e.g., Chest Press Machine" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        </label>
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600">Sets</span>
+          <input type="number" id="add-sets" value="3" min="1" max="10" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        </label>
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600">Reps (e.g., 8-12)</span>
+          <input type="text" id="add-reps" value="8-12" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        </label>
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600">Note (optional)</span>
+          <input type="text" id="add-note" placeholder="Form cue, tempo, etc." style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <button onclick="this.closest('.modal').remove()" style="padding:10px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600">Cancel</button>
+          <button id="save-add" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Add</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  document.getElementById('save-add').onclick = () => {
+    const name = document.getElementById('add-name').value.trim();
+    if (!name) {
+      alert('Exercise name is required');
+      return;
+    }
+    WORKOUT_PLAN[dayKey].exercises.push({
+      name: name,
+      sets: parseInt(document.getElementById('add-sets').value) || 3,
+      reps: document.getElementById('add-reps').value.trim(),
+      note: document.getElementById('add-note').value.trim() || undefined
+    });
+    saveWorkoutPlan();
+    refreshExerciseDropdowns();
+    renderSchedule();
+    modal.remove();
+  };
+}
+
+function refreshExerciseDropdowns() {
+  // Refresh exercise list in forms with new custom exercises
+  const allExercises = new Set();
+  Object.values(WORKOUT_PLAN).forEach(day => {
+    day.exercises.forEach(ex => allExercises.add(ex.name));
+  });
+  LOADED_EXERCISES._custom = Array.from(allExercises).sort();
+  console.log('[schedule] Exercise dropdowns refreshed with', allExercises.size, 'exercises');
+}
+
+function saveWorkoutPlan() {
+  localStorage.setItem('WORKOUT_PLAN', JSON.stringify(WORKOUT_PLAN));
+  console.log('[schedule] Workout plan saved to localStorage');
 }
 
 /* ─── AI INSIGHTS ─── */
@@ -659,12 +814,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Function to get exercises from loaded data (Excel file)
   function getExercisesForMuscleGroup(muscleGroup) {
-    // First try to use exercises loaded from Excel
+    console.log('[getExercises] Muscle group:', muscleGroup, 'Available:', Object.keys(LOADED_EXERCISES));
+    // First try to use exercises loaded from Excel/API
     if (LOADED_EXERCISES[muscleGroup]) {
-      return LOADED_EXERCISES[muscleGroup];
+      const exercises = LOADED_EXERCISES[muscleGroup];
+      console.log('[getExercises] Found', exercises.length, 'exercises for', muscleGroup);
+      return exercises;
     }
-    // Fallback to exercises from database
-    const existing = [...new Set(trainingData.filter(Array.isArray).map(r => r.Exercise).filter(Boolean))].sort();
+    // Fallback to exercises from logged training data
+    const existing = Array.isArray(trainingData) ? [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort() : [];
+    console.log('[getExercises] Fallback: found', existing.length, 'exercises from training data');
     return existing;
   }
 
@@ -675,11 +834,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (muscleGroupSelect && exerciseSelect) {
     const updateExercises = () => {
       const muscleGroup = muscleGroupSelect.value;
+      console.log('[dropdown] Muscle group changed to:', muscleGroup);
       const exercises = muscleGroup ? getExercisesForMuscleGroup(muscleGroup) : [...new Set((Array.isArray(trainingData) ? trainingData : []).map(r => r.Exercise).filter(Boolean))].sort();
+      console.log('[dropdown] Updating with', exercises.length, 'exercises');
       exerciseSelect.innerHTML = '<option value="">Select exercise...</option>' + exercises.map(e => `<option value="${e}">${e}</option>`).join('');
     };
     
     muscleGroupSelect.addEventListener('change', updateExercises);
+    console.log('[dropdown] Event listener registered');
     
     // When modal opens, update exercises
     document.addEventListener('click', e => {
@@ -691,3 +853,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+function promptWeightGoal() {
+  const current = localStorage.getItem('WEIGHT_GOAL') || '';
+  const goal = prompt('What is your weight goal? (kg)', current);
+  if (goal && parseFloat(goal)) {
+    localStorage.setItem('WEIGHT_GOAL', parseFloat(goal));
+    loadData(); // Refresh overview
+  } else if (goal === '') {
+    localStorage.removeItem('WEIGHT_GOAL');
+    loadData();
+  }
+}

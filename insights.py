@@ -96,8 +96,8 @@ def _rule_based_insights(log_df: pd.DataFrame, weight_df: pd.DataFrame) -> list[
     df = log_df.dropna(subset=["Weight (kg)"]).copy()
 
     if df.empty:
-        return [{"type": "info", "title": "Not enough data yet",
-                  "body": "Log some sets with weight/reps to unlock AI insights."}]
+        return [{"type": "info", "title": "Let's get started!",
+                  "body": "Log your first set to start tracking your strength journey. Every rep counts!"}]
 
     overload_wins, plateaus = [], []
     for exercise, g in df.sort_values("Date").groupby("Exercise"):
@@ -113,40 +113,44 @@ def _rule_based_insights(log_df: pd.DataFrame, weight_df: pd.DataFrame) -> list[
     if overload_wins:
         top = sorted(overload_wins, key=lambda t: -t[2])[:3]
         names = ", ".join(f"{n} (now {w:g}kg)" for n, w, _ in top)
-        insights.append({"type": "success", "title": "Progressive overload detected",
-                          "body": f"You're trending upward in load on {names}. Keep pushing — this is exactly how strength adaptation happens."})
+        insights.append({"type": "success", "title": "🔥 Progressive overload happening!",
+                          "body": f"You're crushing it on {names}! This is the real sign of strength building — keep this momentum going!"})
 
-    if plateaus:
-        names = ", ".join(plateaus[:3])
-        insights.append({"type": "warning", "title": "Possible plateau",
-                          "body": f"Weight has stayed flat across recent sessions for {names}. Consider adding reps, a small load bump (2.5-5%), or a deload week."})
+    if plateaus and not overload_wins:
+        names = ", ".join(plateaus[:2])
+        insights.append({"type": "info", "title": "Plateau = opportunity",
+                          "body": f"{names} is stable. Mix it up: add 2-3 reps, increase weight 2.5%, or try different angles. Adaptation happens!"})
 
     vol_by_date = df.dropna(subset=["Date"]).groupby("Date")["Volume"].sum().sort_index()
     if len(vol_by_date) >= 2:
         slope = _trend(vol_by_date)
         if slope > 0:
-            insights.append({"type": "success", "title": "Training volume is climbing",
-                              "body": "Total session volume (weight x reps x sets) is trending up. Your work capacity is improving."})
-        else:
-            insights.append({"type": "warning", "title": "Volume trending down",
-                              "body": "Recent session volume is lower than earlier sessions — check recovery, sleep, or nutrition if this wasn't intentional."})
+            insights.append({"type": "success", "title": "Work capacity explosion",
+                              "body": "Your training volume is climbing! You're doing more work each session — this is elite level consistency."})
+        elif slope < 0 and len(vol_by_date) >= 3:
+            insights.append({"type": "info", "title": "Volume dip — recovery week?",
+                              "body": "Sessions are lighter recently. If intentional, great! Deloads prevent injury. If not, let's dial it back in."})
 
     if "Muscle Group" in df.columns:
         counts = df["Muscle Group"].value_counts()
         if len(counts) > 1 and counts.max() > 2 * counts.min():
-            insights.append({"type": "info", "title": "Muscle group imbalance",
-                              "body": f"{counts.idxmax()} gets far more logged sets than {counts.idxmin()}. Worth checking your split still hits everything evenly."})
+            top_group = counts.idxmax()
+            insights.append({"type": "info", "title": f"Your {top_group} is getting hammered",
+                              "body": f"You're putting serious volume into {top_group}. Make sure your weaker muscle groups catch up for balanced development!"})
 
     if len(weight_df.dropna(subset=["Weight"])) >= 2:
         w = weight_df.dropna(subset=["Weight"]).sort_values("Date")
         w_slope = _trend(w["Weight"])
         avg_load_slope = np.mean([s for _, _, s in overload_wins]) if overload_wins else 0
         if w_slope < -0.05 and avg_load_slope > 0:
-            insights.append({"type": "success", "title": "Recomposition in progress",
-                              "body": "Bodyweight is trending down while lifted loads trend up — a strong sign of body recomposition."})
+            insights.append({"type": "success", "title": "💪 True recomposition!",
+                              "body": "Your weight is dropping while lifts climb — you're literally building muscle while losing fat. This is what elite looks like!"})
+        elif w_slope > 0.05 and avg_load_slope > 0:
+            insights.append({"type": "success", "title": "Gaining with strength",
+                              "body": "Weight and lifts both trending up — bulk is working! Keep eating and training hard."})
         elif w_slope > 0.05 and avg_load_slope <= 0:
-            insights.append({"type": "warning", "title": "Weight up, strength flat",
-                              "body": "Bodyweight is rising but lifts aren't progressing — worth reviewing training intensity, recovery, or protein intake."})
+            insights.append({"type": "info", "title": "Weight climbing, reset the intensity",
+                              "body": "Bodyweight up but lifts flat — might need more sleep, protein, or it's time to deload and come back stronger."})
 
     # Per-exercise reps analysis
     for exercise, g in df.sort_values("Date").groupby("Exercise"):
@@ -157,12 +161,12 @@ def _rule_based_insights(log_df: pd.DataFrame, weight_df: pd.DataFrame) -> list[
         last_reps = g["Avg Reps (3 sets)"].iloc[-1]
         last_weight = g["Weight (kg)"].iloc[-1]
         if reps_slope > 0.3 and last_reps >= 12:
-            insights.append({"type": "info", "title": f"Time to increase weight on {exercise}",
-                              "body": f"You're hitting {last_reps:g} reps at {last_weight:g}kg with reps trending up. Consider bumping the weight 2.5-5% and resetting to 8-10 reps."})
+            insights.append({"type": "success", "title": f"{exercise} — ready to level up!",
+                              "body": f"You're crushing {last_reps:g} reps at {last_weight:g}kg. Time to bump weight by 2.5-5% and own the next phase!"})
             break
         elif reps_slope < -0.3 and last_reps <= 6:
-            insights.append({"type": "warning", "title": f"Reps declining on {exercise}",
-                              "body": f"Down to {last_reps:g} reps at {last_weight:g}kg. If fatigue is building, a deload or slight weight drop could help recovery."})
+            insights.append({"type": "info", "title": f"{exercise} — back off and recharge",
+                              "body": f"Down to {last_reps:g} reps at {last_weight:g}kg. Perfect time for a deload or weight drop — recovery = growth!"})
             break
 
     # Top exercises by volume

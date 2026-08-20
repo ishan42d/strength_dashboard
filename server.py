@@ -159,25 +159,40 @@ def add_steps():
 
 @app.route("/api/exercises", methods=["GET"])
 def get_exercises():
-    """Get unique exercises from Excel file, grouped by muscle group."""
+    """Get unique exercises from Excel file (local) or database (Railway), grouped by muscle group."""
     try:
-        if old_data_utils is None:
-            return jsonify({}), 200
-        
-        # Load from Excel file
-        excel_df = old_data_utils.load_training_log()
-        
-        # Group exercises by muscle group
         exercises_by_muscle = {}
-        for _, row in excel_df.iterrows():
-            muscle = row.get("Muscle Group", "").strip()
-            exercise = row.get("Exercise", "").strip()
-            
-            if muscle and exercise:
-                if muscle not in exercises_by_muscle:
-                    exercises_by_muscle[muscle] = []
-                if exercise not in exercises_by_muscle[muscle]:
-                    exercises_by_muscle[muscle].append(exercise)
+        
+        # Try loading from Excel first (local development)
+        if old_data_utils is not None:
+            try:
+                excel_df = old_data_utils.load_training_log()
+                for _, row in excel_df.iterrows():
+                    muscle = row.get("Muscle Group", "").strip()
+                    exercise = row.get("Exercise", "").strip()
+                    if muscle and exercise:
+                        if muscle not in exercises_by_muscle:
+                            exercises_by_muscle[muscle] = []
+                        if exercise not in exercises_by_muscle[muscle]:
+                            exercises_by_muscle[muscle].append(exercise)
+            except Exception as e:
+                # If Excel fails, continue to database fallback
+                pass
+        
+        # Also load from database (for Railway / production)
+        if not exercises_by_muscle:  # Only if Excel failed
+            try:
+                entries = TrainingLog.query.all()
+                for entry in entries:
+                    muscle = entry.muscle_group or ""
+                    exercise = entry.exercise or ""
+                    if muscle and exercise:
+                        if muscle not in exercises_by_muscle:
+                            exercises_by_muscle[muscle] = []
+                        if exercise not in exercises_by_muscle[muscle]:
+                            exercises_by_muscle[muscle].append(exercise)
+            except Exception as e:
+                pass
         
         # Sort exercises within each muscle group
         for muscle in exercises_by_muscle:
