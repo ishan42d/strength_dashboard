@@ -25,6 +25,18 @@ const MUSCLE_COLORS = {
   'Rear Shoulders': '#ec4899',
 };
 
+// Default exercises by muscle group
+const DEFAULT_EXERCISES = {
+  'Chest': ['Bench Press', 'Incline Bench Press', 'Dumbbell Press', 'Chest Fly', 'Push Ups', 'Machine Chest Press'],
+  'Shoulders': ['Shoulder Press', 'Lateral Raises', 'Front Raises', 'Reverse Fly', 'Overhead Press', 'Machine Shoulder Press'],
+  'Triceps': ['Tricep Dips', 'Tricep Pushdown', 'Overhead Extension', 'Skull Crushers', 'Close Grip Bench', 'Rope Pushdown'],
+  'Back': ['Deadlift', 'Barbell Rows', 'Dumbbell Rows', 'Lat Pulldown', 'Pull Ups', 'Machine Rows', 'T-Bar Rows', 'Face Pulls'],
+  'Biceps': ['Barbell Curls', 'Dumbbell Curls', 'Cable Curls', 'Hammer Curls', 'EZ Bar Curls', 'Preacher Curls'],
+  'Core': ['Planks', 'Ab Wheel', 'Cable Crunches', 'Hanging Leg Raises', 'Ab Machine', 'Weighted Planks'],
+  'Legs': ['Squats', 'Leg Press', 'Leg Curl', 'Leg Extension', 'Bulgarian Split Squat', 'Lunges', 'Romanian Deadlift'],
+  'Rear Shoulders': ['Reverse Pec Deck', 'Reverse Fly', 'Bent Over Rows', 'Machine Reverse Fly'],
+};
+
 Chart.defaults.color = COLORS.muted;
 Chart.defaults.borderColor = COLORS.grid;
 Chart.defaults.font.family = "'Inter', sans-serif";
@@ -585,16 +597,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Populate exercise dropdown in training modal when modal opens
-  document.addEventListener('click', e => {
-    if (e.target.textContent === 'Log Training') {
-      setTimeout(() => {
-        const sel = document.querySelector('#form-training-modal select[name="Exercise"]');
-        if (sel && sel.innerHTML.split('><').length < 3) {
-          const exercises = [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort();
-          sel.innerHTML = '<option value="">Select exercise...</option>' + exercises.map(e => `<option value="${e}">${e}</option>`).join('');
-        }
-      }, 100);
-    }
-  });
+  // Function to get exercises (existing + defaults)
+  function getExercisesForMuscleGroup(muscleGroup) {
+    const existing = [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort();
+    const defaults = DEFAULT_EXERCISES[muscleGroup] || [];
+    const combined = [...new Set([...existing, ...defaults])].sort();
+    return combined;
+  }
+
+  // Populate exercise dropdown based on Muscle Group selection
+  const muscleGroupSelect = document.querySelector('#form-training-modal select[name="Muscle Group"]');
+  const exerciseSelect = document.querySelector('#form-training-modal select[name="Exercise"]');
+  
+  if (muscleGroupSelect && exerciseSelect) {
+    const updateExercises = () => {
+      const muscleGroup = muscleGroupSelect.value;
+      const exercises = muscleGroup ? getExercisesForMuscleGroup(muscleGroup) : [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort();
+      exerciseSelect.innerHTML = '<option value="">Select exercise...</option>' + exercises.map(e => `<option value="${e}">${e}</option>`).join('');
+    };
+    
+    muscleGroupSelect.addEventListener('change', updateExercises);
+    
+    // When modal opens, update exercises
+    document.addEventListener('click', e => {
+      if (e.target.textContent === 'Log Training') {
+        setTimeout(() => {
+          updateExercises();
+        }, 100);
+      }
+    });
+  }
 });
