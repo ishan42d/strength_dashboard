@@ -35,6 +35,12 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
 
+# Global error handler - return JSON instead of HTML for all errors
+@app.errorhandler(Exception)
+def handle_error(error):
+    return jsonify({"error": str(error)}), 500
+
+
 def df_to_records(df):
     out = df.copy()
     for col in out.columns:
@@ -50,20 +56,26 @@ def index():
 
 @app.route("/api/training", methods=["GET"])
 def get_training():
-    df = load_training_log()
-    records = df_to_records(df)
-    for i, r in enumerate(records):
-        r["_idx"] = r.get("id", i)  # Use database ID instead of index
-    return jsonify(records)
+    try:
+        df = load_training_log()
+        records = df_to_records(df)
+        for i, r in enumerate(records):
+            r["_idx"] = r.get("id", i)  # Use database ID instead of index
+        return jsonify(records)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/training", methods=["POST"])
 def add_training():
-    body = request.get_json(force=True)
-    if not body.get("Exercise"):
-        return jsonify({"error": "Exercise is required"}), 400
-    append_training_entry(body)
-    return jsonify({"status": "ok"}), 201
+    try:
+        body = request.get_json(force=True)
+        if not body.get("Exercise"):
+            return jsonify({"error": "Exercise is required"}), 400
+        append_training_entry(body)
+        return jsonify({"status": "ok"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/training/<int:row_idx>", methods=["PUT"])
@@ -87,51 +99,66 @@ def remove_training(row_idx):
 
 @app.route("/api/weight", methods=["GET"])
 def get_weight():
-    return jsonify(df_to_records(load_weight_log()))
+    try:
+        return jsonify(df_to_records(load_weight_log()))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/weight", methods=["POST"])
 def add_weight():
-    body = request.get_json(force=True)
-    date_str = body.get("Date")
-    weight = body.get("Weight")
-    if not date_str or weight is None:
-        return jsonify({"error": "Date and Weight are required"}), 400
     try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
-        weight = float(weight)
-    except (ValueError, TypeError):
-        return jsonify({"error": "Invalid date or weight"}), 400
-    append_weight_entry(dt, weight)
-    return jsonify({"status": "ok"}), 201
+        body = request.get_json(force=True)
+        date_str = body.get("Date")
+        weight = body.get("Weight")
+        if not date_str or weight is None:
+            return jsonify({"error": "Date and Weight are required"}), 400
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            weight = float(weight)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid date or weight"}), 400
+        append_weight_entry(dt, weight)
+        return jsonify({"status": "ok"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/steps", methods=["GET"])
 def get_steps():
-    return jsonify(df_to_records(load_steps_log()))
+    try:
+        return jsonify(df_to_records(load_steps_log()))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/steps", methods=["POST"])
 def add_steps():
-    body = request.get_json(force=True)
-    date_str = body.get("Date")
-    steps = body.get("Steps")
-    if not date_str or steps is None:
-        return jsonify({"error": "Date and Steps are required"}), 400
     try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
-        steps = int(steps)
-    except (ValueError, TypeError):
-        return jsonify({"error": "Invalid date or steps"}), 400
-    append_steps_entry(dt, steps)
-    return jsonify({"status": "ok"}), 201
+        body = request.get_json(force=True)
+        date_str = body.get("Date")
+        steps = body.get("Steps")
+        if not date_str or steps is None:
+            return jsonify({"error": "Date and Steps are required"}), 400
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            steps = int(steps)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid date or steps"}), 400
+        append_steps_entry(dt, steps)
+        return jsonify({"status": "ok"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/insights", methods=["GET"])
 def get_insights():
-    log_df = load_training_log()
-    weight_df = load_weight_log()
-    return jsonify(generate_insights(log_df, weight_df))
+    try:
+        log_df = load_training_log()
+        weight_df = load_weight_log()
+        return jsonify(generate_insights(log_df, weight_df))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
