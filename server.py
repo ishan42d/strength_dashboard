@@ -14,6 +14,12 @@ from db_utils import (
 )
 from insights import generate_insights
 
+# Try to import from Excel for exercise data
+try:
+    import data_utils as old_data_utils
+except ImportError:
+    old_data_utils = None
+
 load_dotenv()
 
 app = Flask(__name__, static_folder="static", static_url_path="")
@@ -147,6 +153,37 @@ def add_steps():
             return jsonify({"error": "Invalid date or steps"}), 400
         append_steps_entry(dt, steps)
         return jsonify({"status": "ok"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/exercises", methods=["GET"])
+def get_exercises():
+    """Get unique exercises from Excel file, grouped by muscle group."""
+    try:
+        if old_data_utils is None:
+            return jsonify({}), 200
+        
+        # Load from Excel file
+        excel_df = old_data_utils.load_training_log()
+        
+        # Group exercises by muscle group
+        exercises_by_muscle = {}
+        for _, row in excel_df.iterrows():
+            muscle = row.get("Muscle Group", "").strip()
+            exercise = row.get("Exercise", "").strip()
+            
+            if muscle and exercise:
+                if muscle not in exercises_by_muscle:
+                    exercises_by_muscle[muscle] = []
+                if exercise not in exercises_by_muscle[muscle]:
+                    exercises_by_muscle[muscle].append(exercise)
+        
+        # Sort exercises within each muscle group
+        for muscle in exercises_by_muscle:
+            exercises_by_muscle[muscle].sort()
+        
+        return jsonify(exercises_by_muscle), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

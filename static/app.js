@@ -25,17 +25,8 @@ const MUSCLE_COLORS = {
   'Rear Shoulders': '#ec4899',
 };
 
-// Default exercises by muscle group
-const DEFAULT_EXERCISES = {
-  'Chest': ['Bench Press', 'Incline Bench Press', 'Dumbbell Press', 'Chest Fly', 'Push Ups', 'Machine Chest Press'],
-  'Shoulders': ['Shoulder Press', 'Lateral Raises', 'Front Raises', 'Reverse Fly', 'Overhead Press', 'Machine Shoulder Press'],
-  'Triceps': ['Tricep Dips', 'Tricep Pushdown', 'Overhead Extension', 'Skull Crushers', 'Close Grip Bench', 'Rope Pushdown'],
-  'Back': ['Deadlift', 'Barbell Rows', 'Dumbbell Rows', 'Lat Pulldown', 'Pull Ups', 'Machine Rows', 'T-Bar Rows', 'Face Pulls'],
-  'Biceps': ['Barbell Curls', 'Dumbbell Curls', 'Cable Curls', 'Hammer Curls', 'EZ Bar Curls', 'Preacher Curls'],
-  'Core': ['Planks', 'Ab Wheel', 'Cable Crunches', 'Hanging Leg Raises', 'Ab Machine', 'Weighted Planks'],
-  'Legs': ['Squats', 'Leg Press', 'Leg Curl', 'Leg Extension', 'Bulgarian Split Squat', 'Lunges', 'Romanian Deadlift'],
-  'Rear Shoulders': ['Reverse Pec Deck', 'Reverse Fly', 'Bent Over Rows', 'Machine Reverse Fly'],
-};
+// Exercises by muscle group (loaded from Excel file)
+let LOADED_EXERCISES = {};
 
 Chart.defaults.color = COLORS.muted;
 Chart.defaults.borderColor = COLORS.grid;
@@ -68,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
   setupStatusFilter();
   setupForms();
+  loadExercises();
   loadData();
 });
 
@@ -89,12 +81,31 @@ function setupStatusFilter() {
   // Filter removed - only showing completed entries now
 }
 
+/* ─── LOAD EXERCISES ─── */
+async function loadExercises() {
+  try {
+    const res = await fetch('/api/exercises');
+    const data = await res.json();
+    if (data && typeof data === 'object' && !data.error) {
+      LOADED_EXERCISES = data;
+    }
+  } catch (e) {
+    console.error('Failed to load exercises:', e);
+  }
+}
+
 /* ─── LOAD DATA ─── */
 async function loadData() {
   const [tRes, wRes, sRes] = await Promise.all([fetch('/api/training'), fetch('/api/weight'), fetch('/api/steps')]);
-  trainingData = await tRes.json();
-  weightData = await wRes.json();
-  stepsData = await sRes.json();
+  trainingData = (await tRes.json()) || [];
+  weightData = (await wRes.json()) || [];
+  stepsData = (await sRes.json()) || [];
+  
+  // Ensure they're arrays even if API returns error objects
+  if (!Array.isArray(trainingData)) trainingData = [];
+  if (!Array.isArray(weightData)) weightData = [];
+  if (!Array.isArray(stepsData)) stepsData = [];
+  
   renderOverview();
   renderStrengthTable();
   renderWeightTab();
@@ -102,7 +113,7 @@ async function loadData() {
 
 /* ─── OVERVIEW ─── */
 function renderOverview() {
-  const completed = trainingData.filter(r => r.Date);
+  const completed = Array.isArray(trainingData) ? trainingData.filter(r => r.Date) : [];
   const exercises = [...new Set(completed.map(r => r.Exercise))];
   const totalVol = completed.reduce((s, r) => s + (r.Volume || 0), 0);
 
@@ -292,7 +303,7 @@ function renderStrengthTable() {
   const tbody = document.querySelector('#strength-table tbody');
   thead.innerHTML = '<tr>' + VISIBLE_COLS.map(c => `<th>${c}</th>`).join('') + '<th></th></tr>';
 
-  const rows = trainingData.filter(r => r.Date).sort((a, b) => new Date(b.Date) - new Date(a.Date)); // Only completed entries, newest first
+  const rows = Array.isArray(trainingData) ? trainingData.filter(r => r.Date).sort((a, b) => new Date(b.Date) - new Date(a.Date)) : [];
 
   tbody.innerHTML = rows.map(r => {
     const cells = VISIBLE_COLS.map(col => {
@@ -315,7 +326,7 @@ function startEdit(td) {
   if (td.classList.contains('editing')) return;
   const col = td.dataset.col;
   const idx = parseInt(td.dataset.idx);
-  const row = trainingData.find(r => r._idx === idx);
+  const row = Array.isArray(trainingData) ? trainingData.find(r => r._idx === idx) : null;
   const oldVal = row[col] != null ? row[col] : '';
 
   td.classList.add('editing');
@@ -333,7 +344,7 @@ function startEdit(td) {
   }
 
   if (col === 'Exercise') {
-    const exercises = [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort();
+    const exercises = [...new Set((Array.isArray(trainingData) ? trainingData : []).map(r => r.Exercise).filter(Boolean))].sort();
     const sel = document.createElement('select');
     sel.innerHTML = '<option value="">--</option>' + exercises.map(e => `<option value="${e}" ${e === oldVal ? 'selected' : ''}>${e}</option>`).join('');
     td.innerHTML = '';
@@ -428,7 +439,7 @@ function setupForms() {
 }
 
 function populateExerciseFormPicker() {
-  const exercises = [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort();
+  const exercises = [...new Set((Array.isArray(trainingData) ? trainingData : []).map(r => r.Exercise).filter(Boolean))].sort();
   const sel = document.getElementById('exercise-form-picker');
   const current = sel.value;
   sel.innerHTML = '<option value="">Select exercise...</option>' + exercises.map(e => `<option value="${e}">${e}</option>`).join('');
@@ -537,7 +548,7 @@ async function loadInsights() {
       return `<div class="insight-card type-${type}"><div class="insight-icon">${icons[type] || 'i'}</div><div class="insight-body"><h4>${d.title || 'Insight'}</h4><p>${d.text || d.body || ''}</p></div></div>`;
     }).join('');
 
-    const completed = trainingData.filter(r => r.Date);
+    const completed = Array.isArray(trainingData) ? trainingData.filter(r => r.Date) : [];
     if (completed.length) renderExercisePicker(completed, 'exercise-picker-insights', 'chart-exercise-insights');
   } catch (e) {
     list.innerHTML = `<p class="muted">Failed to load insights.</p>`;
@@ -646,12 +657,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Function to get exercises (existing + defaults)
+  // Function to get exercises from loaded data (Excel file)
   function getExercisesForMuscleGroup(muscleGroup) {
-    const existing = [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort();
-    const defaults = DEFAULT_EXERCISES[muscleGroup] || [];
-    const combined = [...new Set([...existing, ...defaults])].sort();
-    return combined;
+    // First try to use exercises loaded from Excel
+    if (LOADED_EXERCISES[muscleGroup]) {
+      return LOADED_EXERCISES[muscleGroup];
+    }
+    // Fallback to exercises from database
+    const existing = [...new Set(trainingData.filter(Array.isArray).map(r => r.Exercise).filter(Boolean))].sort();
+    return existing;
   }
 
   // Populate exercise dropdown based on Muscle Group selection
@@ -661,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (muscleGroupSelect && exerciseSelect) {
     const updateExercises = () => {
       const muscleGroup = muscleGroupSelect.value;
-      const exercises = muscleGroup ? getExercisesForMuscleGroup(muscleGroup) : [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort();
+      const exercises = muscleGroup ? getExercisesForMuscleGroup(muscleGroup) : [...new Set((Array.isArray(trainingData) ? trainingData : []).map(r => r.Exercise).filter(Boolean))].sort();
       exerciseSelect.innerHTML = '<option value="">Select exercise...</option>' + exercises.map(e => `<option value="${e}">${e}</option>`).join('');
     };
     
