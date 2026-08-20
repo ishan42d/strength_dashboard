@@ -23,8 +23,13 @@ database_url = os.getenv("DATABASE_URL")
 if database_url and database_url.startswith("postgres://"):
     # Railway uses postgres://, but SQLAlchemy requires postgresql://
     database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+elif database_url:
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+else:
+    # Local development: use SQLite
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///strength_dashboard.db"
 
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "postgresql://localhost/strength_dashboard"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
