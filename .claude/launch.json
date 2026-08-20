@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "strength-lab",
+      "runtimeExecutable": "/Users/ishanbabbar/Documents/Mac Documents/Other assets/strength_dashboard/venv/bin/python",
+      "runtimeArgs": ["server.py"],
+      "port": 5050
+    }
+  ]
+}

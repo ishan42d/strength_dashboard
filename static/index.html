@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>Strength Dashboard</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">I</span>
+      <span>Ishan's Training Dashboard</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab-btn active" data-tab="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        <span>Overview</span>
+      </button>
+      <button class="tab-btn" data-tab="insights">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        <span>Insights</span>
+      </button>
+      <button class="tab-btn" data-tab="schedule">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span>Schedule</span>
+      </button>
+      <button class="tab-btn" data-tab="strength">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M21 21l-1-1M3 3l1 1M18 22l4-4M2 6l4-4M7 17l-5 5M17 7l5-5"/></svg>
+        <span>Training</span>
+      </button>
+      <button class="tab-btn" data-tab="weight">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+        <span>Body</span>
+      </button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- OVERVIEW -->
+    <section class="panel active" id="overview">
+      <div class="quick-log-buttons">
+        <button class="btn-primary" onclick="openModal('modal-training')">Log Training</button>
+        <button class="btn-primary" onclick="openModal('modal-weight')">Log Weight</button>
+        <button class="btn-primary" onclick="openModal('modal-steps')">Log Steps</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Sessions Logged</div>
+          <div class="stat-value" id="stat-sessions">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Exercises Tracked</div>
+          <div class="stat-value" id="stat-exercises">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Current Bodyweight</div>
+          <div class="stat-value" id="stat-weight">–</div>
+          <div class="stat-delta" id="stat-weight-delta"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Volume</div>
+          <div class="stat-value" id="stat-volume">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Steps Today</div>
+          <div class="stat-value" id="stat-steps">–</div>
+          <div class="stat-delta" id="stat-steps-avg"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Session Volume Over Time</h3></div>
+          <canvas id="chart-volume"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Bodyweight Trend</h3></div>
+          <canvas id="chart-weight"></canvas>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Muscle Group Distribution</h3></div>
+          <canvas id="chart-muscle"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Exercise Progress</h3></div>
+          <select id="exercise-picker"></select>
+          <canvas id="chart-exercise"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><h3>Daily Steps</h3></div>
+        <canvas id="chart-steps"></canvas>
+      </div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section class="panel" id="schedule">
+      <div class="section-header">
+        <h2>Weekly Schedule</h2>
+      </div>
+      <p class="muted" style="margin-bottom:1.5rem">Your planned workouts by day</p>
+      <div id="schedule-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px"></div>
+    </section>
+
+    <!-- AI INSIGHTS -->
+    <section class="panel" id="insights">
+      <div class="section-header">
+        <div>
+          <h2>Insights</h2>
+          <p class="muted" style="margin-top:4px">Analysis from your training data and bodyweight trend</p>
+        </div>
+        <button class="btn-secondary" id="refresh-insights"><span class="spinner" id="insights-spinner" style="display:none"></span> Refresh</button>
+      </div>
+      <div id="insight-list" class="insight-list"></div>
+
+      <div style="margin-top:2rem">
+        <div class="card">
+          <div class="card-header"><h3>Exercise Load Progression</h3></div>
+          <select id="exercise-picker-insights"></select>
+          <canvas id="chart-exercise-insights"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- STRENGTH LOG -->
+    <section class="panel" id="strength">
+      <div class="section-header">
+        <h2>Training Log</h2>
+      </div>
+      <p class="muted" style="margin-bottom:0.75rem">Click any cell to edit. Changes save directly to your Excel workbook.</p>
+      <div class="table-wrap"><div class="table-scroll"><table id="strength-table"><thead></thead><tbody></tbody></table></div></div>
+    </section>
+
+    <!-- WEIGHT LOG -->
+    <section class="panel" id="weight">
+      <div class="section-header">
+        <h2>Bodyweight Tracker</h2>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Weight Over Time</h3></div>
+          <canvas id="chart-weight-full"></canvas>
+        </div>
+        <div class="table-wrap" style="align-self:start"><div class="table-scroll"><table id="weight-table"><thead></thead><tbody></tbody></table></div></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODALS -->
+  <div id="modal-training" class="modal" onclick="if(event.target===this)closeModal('modal-training')">
+    <div class="modal-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 style="font-size:1.2rem;font-weight:700">Log Training Session</h3>
+        <button style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.5rem" onclick="closeModal('modal-training')">×</button>
+      </div>
+      <form id="form-training-modal" style="display:grid;gap:16px">
+        <label>Date <input type="date" name="Date" required></label>
+        <label>Day <select name="Day" required><option value="">Select day...</option><option value="Day 1">Day 1</option><option value="Day 2">Day 2</option><option value="Day 3">Day 3</option><option value="Day 4">Day 4</option></select></label>
+        <label>Workout <select name="Workout" required><option value="">Select workout...</option><option value="Push Day">Push Day</option><option value="Pull Day">Pull Day</option><option value="Arms & Core">Arms & Core</option><option value="Legs & Rear Delts">Legs & Rear Delts</option></select></label>
+        <label>Muscle Group <select name="Muscle Group" required><option value="">Select muscle group...</option><option value="Chest">Chest</option><option value="Shoulders">Shoulders</option><option value="Triceps">Triceps</option><option value="Back">Back</option><option value="Biceps">Biceps</option><option value="Core">Core</option><option value="Legs">Legs</option><option value="Rear Shoulders">Rear Shoulders</option></select></label>
+        <label>Exercise <select name="Exercise" required><option value="">Select exercise...</option></select></label>
+        <label>Weight (kg) <input type="number" step="0.5" name="Weight (kg)" required></label>
+        <label>Avg Reps (3 sets) <input type="number" step="1" name="Avg Reps (3 sets)" required></label>
+        <label>Notes <textarea name="Notes" placeholder="Optional — form cues, RPE, etc." style="min-height:60px"></textarea></label>
+        <button type="submit" class="btn-primary">Log Session</button>
+        <div class="form-msg" id="msg-training-modal"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-weight" class="modal" onclick="if(event.target===this)closeModal('modal-weight')">
+    <div class="modal-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 style="font-size:1.2rem;font-weight:700">Log Bodyweight</h3>
+        <button style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.5rem" onclick="closeModal('modal-weight')">×</button>
+      </div>
+      <form id="form-weight-modal" style="display:grid;gap:16px">
+        <label>Date <input type="date" name="Date" required></label>
+        <label>Weight (kg) <input type="number" step="0.1" name="Weight" placeholder="0" required></label>
+        <button type="submit" class="btn-primary">Log Weight</button>
+        <div class="form-msg" id="msg-weight-modal"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-steps" class="modal" onclick="if(event.target===this)closeModal('modal-steps')">
+    <div class="modal-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 style="font-size:1.2rem;font-weight:700">Log Daily Steps</h3>
+        <button style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.5rem" onclick="closeModal('modal-steps')">×</button>
+      </div>
+      <form id="form-steps-modal" style="display:grid;gap:16px">
+        <label>Date <input type="date" name="Date" required></label>
+        <label>Steps <input type="number" step="1" name="Steps" placeholder="0" required></label>
+        <button type="submit" class="btn-primary">Log Steps</button>
+        <div class="form-msg" id="msg-steps-modal"></div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

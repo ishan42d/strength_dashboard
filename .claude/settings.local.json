@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pkill -f \"streamlit run\")",
+      "Bash(curl -s http://localhost:5050/api/training)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5050/api/training)",
+      "Bash(grep -i \"insights\\\\]\" /tmp/flask.log | tail -5)",
+      "Bash(curl -s http://localhost:5050/api/insights)",
+      "Bash(curl -s -m 5 -o /dev/null -w \"%{http_code}\\\\n\" https://ishanbabbar-4689-resource.services.ai.azure.com)",
+      "Bash(curl -s -m 5 -o /dev/null -w \"%{http_code}\\\\n\" https://www.google.com)",
+      "Bash(lsof -ti:5050)",
+      "Bash(xargs kill -9)"
+    ]
+  }
+}
