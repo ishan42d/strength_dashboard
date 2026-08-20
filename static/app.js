@@ -559,11 +559,13 @@ function renderSchedule() {
                   ${ex.note ? `<span style="color:var(--text-4);font-style:italic">💡 ${ex.note}</span>` : ''}
                 </div>
               </div>
-              <button onclick="editExercise('${dayKey}', ${idx})" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.9rem;padding:4px 8px;border-radius:4px;hover:background:var(--bg-input)">✏️</button>
+              <div style="display:flex;gap:4px">
+                <button onclick="editExercise('${dayKey}', ${idx})" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.9rem;padding:4px 8px;border-radius:4px;transition:color 0.2s">✎</button>
+                <button onclick="deleteExercise('${dayKey}', ${idx})" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.85rem;padding:4px 8px;border-radius:4px;transition:color 0.2s">✕</button>
+              </div>
             </div>
           `).join('')}
         </div>
-        <button onclick="addExercise('${dayKey}')" style="margin-top:12px;width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-3);border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:600">+ Add Exercise</button>
         ${day.muscleGroups.length ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-4);letter-spacing:0.05em;font-weight:600">MUSCLE GROUPS: ${day.muscleGroups.join(', ')}</div>` : ''}
       </div>
     `;
@@ -571,40 +573,61 @@ function renderSchedule() {
 }
 
 function editExercise(dayKey, index) {
+  console.log('[editExercise] Opening modal for dayKey:', dayKey, 'index:', index);
   const day = WORKOUT_PLAN[dayKey];
   const exercise = day.exercises[index];
   const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999';
+  
+  // Set styles individually for better browser compatibility
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100%';
+  modal.style.height = '100%';
+  modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+  modal.style.zIndex = '9999';
+  
   modal.innerHTML = `
-    <div class="modal-content" style="width:90%;max-width:400px;background:var(--card-bg);border-radius:12px;padding:24px">
-      <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:16px">Edit Exercise</h3>
+    <div style="width:90%;max-width:400px;background:#1a1a1a;border-radius:12px;padding:24px;box-shadow:0 4px 6px rgba(0,0,0,0.3)">
+      <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:16px;color:#fff">Edit Exercise</h3>
       <div style="display:grid;gap:12px">
         <label style="display:grid;gap:4px">
-          <span style="font-size:0.85rem;font-weight:600">Exercise Name</span>
-          <input type="text" id="edit-name" value="${exercise.name}" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Exercise Name</span>
+          <input type="text" id="edit-name" value="${exercise.name}" style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff">
         </label>
         <label style="display:grid;gap:4px">
-          <span style="font-size:0.85rem;font-weight:600">Sets</span>
-          <input type="number" id="edit-sets" value="${exercise.sets}" min="1" max="10" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Sets</span>
+          <input type="number" id="edit-sets" value="${exercise.sets}" min="1" max="10" style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff">
         </label>
         <label style="display:grid;gap:4px">
-          <span style="font-size:0.85rem;font-weight:600">Reps (e.g., 8-12)</span>
-          <input type="text" id="edit-reps" value="${exercise.reps}" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Reps (e.g., 8-12)</span>
+          <input type="text" id="edit-reps" value="${exercise.reps}" style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff">
         </label>
         <label style="display:grid;gap:4px">
-          <span style="font-size:0.85rem;font-weight:600">Note (optional)</span>
-          <input type="text" id="edit-note" value="${exercise.note || ''}" placeholder="Form cue, tempo, etc." style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Note (optional)</span>
+          <input type="text" id="edit-note" value="${exercise.note || ''}" placeholder="Form cue, tempo, etc." style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff">
         </label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-          <button onclick="this.closest('.modal').remove()" style="padding:10px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600">Cancel</button>
-          <button id="save-edit" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Save</button>
+          <button id="cancel-edit" style="padding:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:6px;cursor:pointer;font-weight:600">Cancel</button>
+          <button id="save-edit" style="padding:10px;background:#ff8c00;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Save</button>
         </div>
       </div>
     </div>
   `;
+  
   document.body.appendChild(modal);
+  console.log('[editExercise] Modal appended to body');
+  
+  document.getElementById('cancel-edit').onclick = () => {
+    console.log('[editExercise] Cancel clicked');
+    modal.remove();
+  };
+  
   document.getElementById('save-edit').onclick = () => {
+    console.log('[editExercise] Save clicked');
     exercise.name = document.getElementById('edit-name').value.trim();
     exercise.sets = parseInt(document.getElementById('edit-sets').value) || 3;
     exercise.reps = document.getElementById('edit-reps').value.trim();
@@ -613,47 +636,114 @@ function editExercise(dayKey, index) {
     refreshExerciseDropdowns();
     renderSchedule();
     modal.remove();
+    console.log('[editExercise] Exercise saved and modal closed');
   };
 }
 
-function addExercise(dayKey) {
+function deleteExercise(dayKey, index) {
+  console.log('[deleteExercise] Deleting exercise at dayKey:', dayKey, 'index:', index);
+  const day = WORKOUT_PLAN[dayKey];
+  const exercise = day.exercises[index];
+  
+  if (confirm(`Delete "${exercise.name}"? This cannot be undone.`)) {
+    day.exercises.splice(index, 1);
+    saveWorkoutPlan();
+    refreshExerciseDropdowns();
+    renderSchedule();
+    console.log('[deleteExercise] Exercise deleted');
+  }
+}
+
+function openAddExerciseModal() {
+  addExercise();
+}
+
+function addExercise() {
+  console.log('[addExercise] Opening modal');
   const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999';
+  
+  // Set styles individually for better browser compatibility
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100%';
+  modal.style.height = '100%';
+  modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+  modal.style.zIndex = '9999';
+  
   modal.innerHTML = `
-    <div class="modal-content" style="width:90%;max-width:400px;background:var(--card-bg);border-radius:12px;padding:24px">
-      <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:16px">Add Exercise</h3>
+    <div style="width:90%;max-width:400px;background:#1a1a1a;border-radius:12px;padding:24px;box-shadow:0 4px 6px rgba(0,0,0,0.3)">
+      <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:16px;color:#fff">Add Exercise</h3>
       <div style="display:grid;gap:12px">
         <label style="display:grid;gap:4px">
-          <span style="font-size:0.85rem;font-weight:600">Exercise Name</span>
-          <input type="text" id="add-name" placeholder="e.g., Chest Press Machine" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Day *</span>
+          <select id="add-day" style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff;font-size:0.9rem">
+            <option value="">Select a day...</option>
+            <option value="Day 1">Day 1 - Push Day</option>
+            <option value="Day 2">Day 2 - Pull Day</option>
+            <option value="Day 3">Day 3 - Arms & Core</option>
+            <option value="Day 4">Day 4 - Legs + Rear Shoulders</option>
+          </select>
         </label>
         <label style="display:grid;gap:4px">
-          <span style="font-size:0.85rem;font-weight:600">Sets</span>
-          <input type="number" id="add-sets" value="3" min="1" max="10" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Type</span>
+          <select id="add-type" style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff;font-size:0.9rem">
+            <option value="">Auto-detect</option>
+            <option value="Push">Push</option>
+            <option value="Pull">Pull</option>
+            <option value="Arms & Core">Arms & Core</option>
+            <option value="Legs + Rear Shoulders">Legs + Rear Shoulders</option>
+          </select>
         </label>
         <label style="display:grid;gap:4px">
-          <span style="font-size:0.85rem;font-weight:600">Reps (e.g., 8-12)</span>
-          <input type="text" id="add-reps" value="8-12" style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Exercise Name *</span>
+          <input type="text" id="add-name" placeholder="e.g., Chest Press Machine" style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff">
         </label>
         <label style="display:grid;gap:4px">
-          <span style="font-size:0.85rem;font-weight:600">Note (optional)</span>
-          <input type="text" id="add-note" placeholder="Form cue, tempo, etc." style="padding:8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Sets</span>
+          <input type="number" id="add-sets" value="3" min="1" max="10" style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff">
+        </label>
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Reps (e.g., 8-12)</span>
+          <input type="text" id="add-reps" value="8-12" style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff">
+        </label>
+        <label style="display:grid;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600;color:#fff">Note (optional)</span>
+          <input type="text" id="add-note" placeholder="Form cue, tempo, etc." style="padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff">
         </label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-          <button onclick="this.closest('.modal').remove()" style="padding:10px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600">Cancel</button>
-          <button id="save-add" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Add</button>
+          <button id="cancel-add" style="padding:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:6px;cursor:pointer;font-weight:600">Cancel</button>
+          <button id="save-add" style="padding:10px;background:#ff8c00;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Add</button>
         </div>
       </div>
     </div>
   `;
+  
   document.body.appendChild(modal);
+  console.log('[addExercise] Modal appended to body');
+  
+  document.getElementById('cancel-add').onclick = () => {
+    console.log('[addExercise] Cancel clicked');
+    modal.remove();
+  };
+  
   document.getElementById('save-add').onclick = () => {
+    console.log('[addExercise] Save clicked');
+    const dayKey = document.getElementById('add-day').value;
     const name = document.getElementById('add-name').value.trim();
+    
+    if (!dayKey) {
+      alert('Please select a day');
+      return;
+    }
     if (!name) {
       alert('Exercise name is required');
       return;
     }
+    
     WORKOUT_PLAN[dayKey].exercises.push({
       name: name,
       sets: parseInt(document.getElementById('add-sets').value) || 3,
@@ -664,6 +754,7 @@ function addExercise(dayKey) {
     refreshExerciseDropdowns();
     renderSchedule();
     modal.remove();
+    console.log('[addExercise] Exercise saved and modal closed');
   };
 }
 
