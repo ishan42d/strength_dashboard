@@ -55,20 +55,40 @@ def load_steps_log() -> pd.DataFrame:
 
 def append_training_entry(entry: dict):
     """Add a new training log entry."""
-    new_entry = TrainingLog(
-        week=entry.get("Week"),
-        day=entry.get("Day"),
-        workout=entry.get("Workout"),
-        date=datetime.fromisoformat(entry.get("Date")) if entry.get("Date") else datetime.now(),
-        muscle_group=entry.get("Muscle Group"),
-        exercise=entry.get("Exercise"),
-        target_sets_reps=entry.get("Target Sets/Reps"),
-        weight_kg=entry.get("Weight (kg)"),
-        avg_reps_3_sets=entry.get("Avg Reps (3 sets)"),
-        notes=entry.get("Notes"),
-    )
-    db.session.add(new_entry)
-    db.session.commit()
+    try:
+        # Parse date safely
+        date_obj = None
+        if entry.get("Date"):
+            try:
+                if isinstance(entry.get("Date"), str):
+                    date_obj = datetime.fromisoformat(entry.get("Date"))
+                else:
+                    date_obj = entry.get("Date")
+            except (ValueError, TypeError) as de:
+                print(f"[db] Date parse error: {de}, using now()")
+                date_obj = datetime.now()
+        else:
+            date_obj = datetime.now()
+        
+        new_entry = TrainingLog(
+            week=entry.get("Week"),
+            day=entry.get("Day"),
+            workout=entry.get("Workout"),
+            date=date_obj,
+            muscle_group=entry.get("Muscle Group"),
+            exercise=entry.get("Exercise"),
+            target_sets_reps=entry.get("Target Sets/Reps"),
+            weight_kg=entry.get("Weight (kg)"),
+            avg_reps_3_sets=entry.get("Avg Reps (3 sets)"),
+            notes=entry.get("Notes"),
+        )
+        db.session.add(new_entry)
+        db.session.commit()
+        print("[db] Training entry added successfully")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[db] Error adding training entry: {e}")
+        raise Exception(f"Failed to save training entry: {str(e)}")
 
 
 def update_training_entry(row_id: int, updates: dict):
@@ -113,31 +133,43 @@ def delete_training_entry(row_id: int):
 
 def append_weight_entry(date: datetime, weight: float):
     """Add or update a weight log entry."""
-    # Check if entry for this date exists
-    existing = WeightLog.query.filter(
-        WeightLog.date.cast(db.Date) == date.date()
-    ).first()
-    
-    if existing:
-        existing.weight = weight
-    else:
-        new_entry = WeightLog(date=date, weight=weight)
-        db.session.add(new_entry)
-    
-    db.session.commit()
+    try:
+        # Check if entry for this date exists
+        existing = WeightLog.query.filter(
+            WeightLog.date.cast(db.Date) == date.date()
+        ).first()
+        
+        if existing:
+            existing.weight = weight
+        else:
+            new_entry = WeightLog(date=date, weight=weight)
+            db.session.add(new_entry)
+        
+        db.session.commit()
+        print("[db] Weight entry saved successfully")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[db] Error adding weight entry: {e}")
+        raise Exception(f"Failed to save weight entry: {str(e)}")
 
 
 def append_steps_entry(date: datetime, steps: int):
     """Add or update a steps log entry."""
-    # Check if entry for this date exists
-    existing = StepsLog.query.filter(
-        StepsLog.date.cast(db.Date) == date.date()
-    ).first()
-    
-    if existing:
-        existing.steps = steps
-    else:
-        new_entry = StepsLog(date=date, steps=steps)
-        db.session.add(new_entry)
-    
-    db.session.commit()
+    try:
+        # Check if entry for this date exists
+        existing = StepsLog.query.filter(
+            StepsLog.date.cast(db.Date) == date.date()
+        ).first()
+        
+        if existing:
+            existing.steps = steps
+        else:
+            new_entry = StepsLog(date=date, steps=steps)
+            db.session.add(new_entry)
+        
+        db.session.commit()
+        print("[db] Steps entry saved successfully")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[db] Error adding steps entry: {e}")
+        raise Exception(f"Failed to save steps entry: {str(e)}")

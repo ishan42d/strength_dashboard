@@ -185,29 +185,46 @@ def get_exercises():
                             exercises_by_muscle[muscle].append(exercise)
             except Exception as e:
                 # If Excel fails, continue to database fallback
+                print(f"[exercises] Excel load failed: {e}")
                 pass
         
         # Also load from database (for Railway / production)
-        if not exercises_by_muscle:  # Only if Excel failed
-            try:
-                entries = TrainingLog.query.all()
-                for entry in entries:
-                    muscle = entry.muscle_group or ""
-                    exercise = entry.exercise or ""
-                    if muscle and exercise:
-                        if muscle not in exercises_by_muscle:
-                            exercises_by_muscle[muscle] = []
-                        if exercise not in exercises_by_muscle[muscle]:
-                            exercises_by_muscle[muscle].append(exercise)
-            except Exception as e:
-                pass
+        try:
+            entries = TrainingLog.query.all()
+            for entry in entries:
+                muscle = entry.muscle_group or ""
+                exercise = entry.exercise or ""
+                if muscle and exercise:
+                    if muscle not in exercises_by_muscle:
+                        exercises_by_muscle[muscle] = []
+                    if exercise not in exercises_by_muscle[muscle]:
+                        exercises_by_muscle[muscle].append(exercise)
+        except Exception as e:
+            print(f"[exercises] Database load failed: {e}")
+            pass
+        
+        # If still empty, provide default exercises for common muscle groups
+        if not exercises_by_muscle:
+            exercises_by_muscle = {
+                "Chest": ["Barbell Bench Press", "Dumbbell Bench Press", "Incline Bench Press", "Cable Fly", "Machine Chest Press"],
+                "Back": ["Barbell Row", "Dumbbell Row", "Lat Pulldown", "Seated Cable Row", "Pull-ups"],
+                "Shoulders": ["Barbell Shoulder Press", "Dumbbell Shoulder Press", "Lateral Raise", "Face Pull", "Shrug"],
+                "Biceps": ["Barbell Curl", "Dumbbell Curl", "Cable Curl", "Preacher Curl", "Hammer Curl"],
+                "Triceps": ["Tricep Rope Pushdown", "Dips", "Close-grip Bench Press", "Skull Crusher", "Overhead Extension"],
+                "Legs": ["Barbell Squat", "Leg Press", "Leg Curl", "Leg Extension", "Walking Lunge"],
+                "Core": ["Plank", "Ab Wheel Rollout", "Cable Crunch", "Hanging Leg Raise", "Weighted Crunch"],
+                "Rear Shoulders": ["Face Pull", "Reverse Pec Deck", "Bent-over Lateral Raise"],
+            }
+            print("[exercises] Using default exercises (no Excel or database data found)")
         
         # Sort exercises within each muscle group
         for muscle in exercises_by_muscle:
             exercises_by_muscle[muscle].sort()
         
+        print(f"[exercises] Returning {len(exercises_by_muscle)} muscle groups")
         return jsonify(exercises_by_muscle), 200
     except Exception as e:
+        print(f"[exercises] Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 
