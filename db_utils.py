@@ -134,16 +134,24 @@ def delete_training_entry(row_id: int):
 def append_weight_entry(date: datetime, weight: float):
     """Add or update a weight log entry."""
     try:
-        # Check if entry for this date exists
+        # Normalize date to midnight (ignore time component)
+        date_normalized = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Check if entry for this date exists by comparing date only
         existing = WeightLog.query.filter(
-            WeightLog.date.cast(db.Date) == date.date()
+            db.func.date(WeightLog.date) == date_normalized.date()
         ).first()
         
         if existing:
+            # Update existing entry
             existing.weight = weight
+            existing.updated_at = datetime.utcnow()
+            print(f"[db] Weight entry updated for {date_normalized.date()}")
         else:
-            new_entry = WeightLog(date=date, weight=weight)
+            # Create new entry
+            new_entry = WeightLog(date=date_normalized, weight=weight)
             db.session.add(new_entry)
+            print(f"[db] Weight entry created for {date_normalized.date()}")
         
         db.session.commit()
         print("[db] Weight entry saved successfully")
@@ -156,16 +164,24 @@ def append_weight_entry(date: datetime, weight: float):
 def append_steps_entry(date: datetime, steps: int):
     """Add or update a steps log entry."""
     try:
-        # Check if entry for this date exists
+        # Normalize date to midnight (ignore time component)
+        date_normalized = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Check if entry for this date exists by comparing date only
         existing = StepsLog.query.filter(
-            StepsLog.date.cast(db.Date) == date.date()
+            db.func.date(StepsLog.date) == date_normalized.date()
         ).first()
         
         if existing:
+            # Update existing entry
             existing.steps = steps
+            existing.updated_at = datetime.utcnow()
+            print(f"[db] Steps entry updated for {date_normalized.date()}")
         else:
-            new_entry = StepsLog(date=date, steps=steps)
+            # Create new entry
+            new_entry = StepsLog(date=date_normalized, steps=steps)
             db.session.add(new_entry)
+            print(f"[db] Steps entry created for {date_normalized.date()}")
         
         db.session.commit()
         print("[db] Steps entry saved successfully")

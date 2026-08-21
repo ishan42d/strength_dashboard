@@ -98,6 +98,212 @@ async function loadExercises() {
   }
 }
 
+/* ─────────────────────────────────────
+   ANALYTICS DASHBOARD
+   ───────────────────────────────────── */
+
+async function loadAIInsights() {
+  const container = document.getElementById('ai-insights-container');
+  if (!container) return;
+  
+  try {
+    const res = await fetch('/api/insights');
+    const insights = await res.json();
+    
+    if (!insights || insights.length === 0) {
+      container.innerHTML = '<p class="muted">Log more sessions to get personalized insights...</p>';
+      return;
+    }
+    
+    const top3 = insights.slice(0, 3);
+    container.innerHTML = top3.map(insight => {
+      return `
+        <div class="insight-card">
+          <div>
+            <h4>${insight.title || 'Insight'}</h4>
+            <p>${insight.body || insight.text || ''}</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load insights:', e);
+  }
+}
+
+function computeAnalytics(trainingData, weightData, stepsData) {
+  const analytics = {};
+  
+  // Training volume & frequency
+  const allSessions = trainingData.filter(r => r.Date).sort((a, b) => new Date(b.Date) - new Date(a.Date));
+  const thisWeekStart = new Date();
+  thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
+  const thisWeekSessions = allSessions.filter(r => new Date(r.Date) >= thisWeekStart).length;
+  const weeksOfData = Math.max(1, Math.ceil((new Date(allSessions[0].Date) - new Date(allSessions[allSessions.length - 1].Date)) / (7 * 24 * 60 * 60 * 1000)));
+  
+  analytics.thisWeekVolume = thisWeekSessions;
+  analytics.avgWorkoutsPerWeek = (allSessions.length / weeksOfData).toFixed(1);
+  analytics.totalSessions = allSessions.length;
+  
+  // Muscle group breakdown
+  const muscleGroups = {};
+  allSessions.forEach(r => {
+    const muscle = r['Muscle Group'] || 'Unknown';
+    muscleGroups[muscle] = (muscleGroups[muscle] || 0) + 1;
+  });
+  analytics.muscleGroups = muscleGroups;
+  analytics.totalMuscleExercises = Object.values(muscleGroups).reduce((a, b) => a + b, 0);
+  
+  // Exercise progression (PRs)
+  const exerciseProgress = {};
+  allSessions.forEach(r => {
+    const ex = r['Exercise'];
+    if (!ex) return;
+    if (!exerciseProgress[ex]) {
+      exerciseProgress[ex] = [];
+    }
+    exerciseProgress[ex].push({
+      date: new Date(r['Date']),
+      weight: parseFloat(r['Weight (kg)']) || 0,
+      reps: parseFloat(r['Avg Reps (3 sets)']) || 0
+    });
+  });
+  
+  // Calculate PR changes
+  const prChanges = Object.entries(exerciseProgress).map(([exercise, sessions]) => {
+    if (sessions.length < 2) return null;
+    sessions.sort((a, b) => a.date - b.date);
+    const firstWeight = sessions[0].weight;
+    const lastWeight = sessions[sessions.length - 1].weight;
+    const weightChange = lastWeight - firstWeight;
+    return { exercise, firstWeight, lastWeight, weightChange, lastReps: sessions[sessions.length - 1].reps };
+  }).filter(x => x).sort((a, b) => b.weightChange - a.weightChange);
+  
+  analytics.topExercises = prChanges.slice(0, 3);
+  
+  // Weight goal
+  const weightGoal = parseFloat(localStorage.getItem('WEIGHT_GOAL')) || null;
+  if (weightGoal && weightData.length > 0) {
+    const currentWeight = parseFloat(weightData[weightData.length - 1].Weight);
+    const remaining = weightGoal - currentWeight;
+    const progress = ((currentWeight - weightData[0].Weight) / (weightGoal - weightData[0].Weight) * 100);
+    analytics.weightGoal = {
+      target: weightGoal,
+      current: currentWeight,
+      remaining,
+      progress: Math.max(0, Math.min(100, progress)),
+      direction: remaining > 0 ? 'lose' : 'gain',
+      remainingAbsolute: Math.abs(remaining)
+    };
+  }
+  
+  // Steps analytics
+  if (stepsData.length > 0) {
+    const recentSteps = stepsData.slice(-30).map(r => parseFloat(r.Steps) || 0);
+    const avgSteps = Math.round(recentSteps.reduce((a, b) => a + b, 0) / recentSteps.length);
+    analytics.stepsAverage = avgSteps;
+    analytics.stepsStatus = avgSteps >= 10000 ? 'On track!' : `${10000 - avgSteps} steps behind`;
+  }
+  
+  return analytics;
+}
+
+function renderAnalyticsDashboard(analytics) {
+  // Week volume
+  const weekVolEl = document.getElementById('stat-week-volume');
+  const weekTrendEl = document.getElementById('stat-week-trend');
+  if (weekVolEl) {
+    weekVolEl.textContent = analytics.thisWeekVolume || '–';
+    weekTrendEl.textContent = `${analytics.avgWorkoutsPerWeek}/wk avg`;
+  }
+  
+  // Workout average
+  const workoutAvgEl = document.getElementById('stat-workout-avg');
+  const consistencyEl = document.getElementById('stat-consistency');
+  if (workoutAvgEl) {
+    workoutAvgEl.textContent = analytics.avgWorkoutsPerWeek || '–';
+    consistencyEl.textContent = `${analytics.thisWeekVolume} this week`;
+  }
+  
+  // Weight goal KPI
+  const goalEl = document.getElementById('stat-goal');
+  const goalProgressEl = document.getElementById('stat-goal-progress');
+  if (goalEl && analytics.weightGoal) {
+    const goal = analytics.weightGoal;
+    goalEl.textContent = goal.target.toFixed(1) + ' kg';
+    goalProgressEl.textContent = `${goal.remainingAbsolute.toFixed(1)} kg to ${goal.direction === 'lose' ? 'lose' : 'gain'}`;
+    goalProgressEl.className = 'stat-delta ' + (goal.remaining > 0 ? '' : 'positive');
+  }
+  
+  // Muscle group breakdown
+  const muscleEl = document.getElementById('muscle-breakdown');
+  if (muscleEl && analytics.muscleGroups) {
+    const total = analytics.totalMuscleExercises;
+    const bars = Object.entries(analytics.muscleGroups)
+      .sort((a, b) => b[1] - a[1])
+      .map(([muscle, count]) => {
+        const pct = ((count / total) * 100).toFixed(0);
+        return `
+          <div class="muscle-item">
+            <div class="muscle-label">
+              <span class="muscle-label-name">${muscle}</span>
+              <span class="muscle-label-value">${pct}%</span>
+            </div>
+            <div class="muscle-bar-bg">
+              <div class="muscle-bar-fill" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    muscleEl.innerHTML = bars || '<p class="muted">No muscle data yet</p>';
+  }
+  
+  // Top exercises (PRs)
+  const topExEl = document.getElementById('top-exercises');
+  if (topExEl && analytics.topExercises && analytics.topExercises.length > 0) {
+    const cards = analytics.topExercises.map(ex => `
+      <div class="exercise-card">
+        <div class="exercise-name">${ex.exercise}</div>
+        <div class="exercise-stat">
+          <span>Current: <strong>${ex.lastWeight.toFixed(1)}kg × ${ex.lastReps.toFixed(0)}</strong></span>
+          <span class="exercise-trend ${ex.weightChange > 0 ? '' : 'negative'}">
+            ${ex.weightChange > 0 ? '↑' : '↓'} ${Math.abs(ex.weightChange).toFixed(1)}kg
+          </span>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-4); margin-top: 4px">
+          From ${ex.firstWeight.toFixed(1)}kg
+        </div>
+      </div>
+    `).join('');
+    topExEl.innerHTML = cards;
+  } else {
+    topExEl.innerHTML = '<p class="muted">Log exercises to track progression</p>';
+  }
+  
+  // Weight goal
+  if (analytics.weightGoal) {
+    const goal = analytics.weightGoal;
+    document.getElementById('goal-current').textContent = goal.current.toFixed(1) + ' kg';
+    document.getElementById('goal-target').textContent = goal.target.toFixed(1) + ' kg';
+    document.getElementById('goal-remaining').textContent = goal.remainingAbsolute.toFixed(1) + ' kg';
+    document.getElementById('goal-status').textContent = 
+      goal.remaining <= 0 
+        ? '✅ GOAL REACHED! Awesome work!'
+        : `${goal.remainingAbsolute.toFixed(1)} kg to ${goal.direction === 'lose' ? 'lose' : 'gain'}`;
+  } else {
+    document.getElementById('goal-status').textContent = 'Set a weight goal to track your progress';
+  }
+  
+  // Steps
+  if (analytics.stepsAverage) {
+    const stepsEl = document.getElementById('stat-steps-avg-value');
+    const statusEl = document.getElementById('stat-steps-status');
+    stepsEl.textContent = analytics.stepsAverage.toLocaleString();
+    statusEl.textContent = analytics.stepsStatus;
+    statusEl.className = 'stat-delta ' + (analytics.stepsAverage >= 10000 ? 'positive' : '');
+  }
+}
+
 /* ─── LOAD DATA ─── */
 async function loadData() {
   const [tRes, wRes, sRes] = await Promise.all([fetch('/api/training'), fetch('/api/weight'), fetch('/api/steps')]);
@@ -117,61 +323,37 @@ async function loadData() {
 
 /* ─── OVERVIEW ─── */
 function renderOverview() {
+  // Load analytics dashboard (no AI insights - those go to insights tab)
+  const analytics = computeAnalytics(trainingData, weightData, stepsData);
+  renderAnalyticsDashboard(analytics);
+
   const completed = Array.isArray(trainingData) ? trainingData.filter(r => r.Date) : [];
   const uniqueDates = new Set(completed.map(r => r.Date));
   const exercises = [...new Set(completed.map(r => r.Exercise))];
 
   document.getElementById('stat-sessions').textContent = uniqueDates.size;
-  document.getElementById('stat-exercises').textContent = exercises.length;
-  document.getElementById('stat-volume').textContent = uniqueDates.size + ' workouts';
 
   if (weightData.length) {
     const latest = weightData[weightData.length - 1];
     document.getElementById('stat-weight').textContent = parseFloat(latest.Weight).toFixed(1) + ' kg';
+    const weightDate = document.getElementById('stat-weight-delta');
+    weightDate.textContent = `as of ${formatDate(latest.Date)}`;
+    weightDate.className = 'stat-delta';
     if (weightData.length > 1) {
       const prev = weightData[weightData.length - 2];
       const delta = latest.Weight - prev.Weight;
-      const el = document.getElementById('stat-weight-delta');
-      el.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' kg';
-      el.className = 'stat-delta ' + (delta > 0 ? 'negative' : delta < 0 ? 'positive' : '');
+      const dateSpan = document.createElement('span');
+      dateSpan.textContent = ` (${delta >= 0 ? '+' : ''}${delta.toFixed(1)} kg)`;
+      dateSpan.style.fontSize = '0.75rem';
+      dateSpan.style.marginLeft = '6px';
+      weightDate.textContent = `as of ${formatDate(latest.Date)}`;
+      weightDate.appendChild(dateSpan);
     }
-  }
-
-  if (stepsData.length) {
-    const today = new Date().toISOString().slice(0, 10);
-    const todayEntry = stepsData.find(r => r.Date === today);
-    document.getElementById('stat-steps').textContent = todayEntry ? Number(todayEntry.Steps).toLocaleString() : '--';
-    const avg = Math.round(stepsData.reduce((s, r) => s + (r.Steps || 0), 0) / stepsData.length);
-    const el = document.getElementById('stat-steps-avg');
-    el.textContent = 'avg ' + avg.toLocaleString() + '/day';
-    el.className = 'stat-delta';
-  }
-
-  // Weight goal tracking
-  const weightGoal = parseFloat(localStorage.getItem('WEIGHT_GOAL')) || null;
-  if (weightGoal && weightData.length > 0) {
-    const currentWeight = parseFloat(weightData[weightData.length - 1].Weight);
-    const remaining = (weightGoal - currentWeight).toFixed(1);
-    const progress = ((currentWeight - weightData[0].Weight) / (weightGoal - weightData[0].Weight) * 100).toFixed(0);
-    
-    document.getElementById('stat-goal').textContent = weightGoal + ' kg';
-    const goalDelta = document.getElementById('stat-goal-delta');
-    
-    if (parseFloat(remaining) <= 0) {
-      goalDelta.textContent = '✅ GOAL REACHED!';
-      goalDelta.className = 'stat-delta positive';
-    } else if (parseFloat(remaining) > 0) {
-      goalDelta.textContent = remaining + ' kg to go (' + progress + '%)';
-      goalDelta.className = 'stat-delta ' + (progress >= 50 ? 'positive' : 'neutral');
-    }
-  } else if (!weightGoal) {
-    document.getElementById('stat-goal').textContent = '--';
-    document.getElementById('stat-goal-delta').textContent = 'Set goal';
-    document.getElementById('stat-goal-delta').className = 'stat-delta muted';
   }
 
   renderVolumeChart(completed);
   renderWeightChart();
+  renderWeightGoalChart();
   renderMuscleChart(completed);
   renderExercisePicker(completed, 'exercise-picker', 'chart-exercise');
   renderStepsChart();
@@ -457,6 +639,92 @@ function renderWeightTab() {
       }]
     },
     options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { grid: { color: COLORS.grid } }, x: { grid: { display: false } } } }
+  });
+}
+
+function renderWeightGoalChart() {
+  const goalValue = parseFloat(localStorage.getItem('WEIGHT_GOAL'));
+  const canvasEl = document.getElementById('chart-weight-goal');
+  
+  destroyChart('weightGoal');
+  if (!weightData.length || !goalValue) {
+    if (canvasEl) canvasEl.style.display = 'none';
+    return;
+  }
+  
+  if (canvasEl) canvasEl.style.display = 'block';
+  
+  const startWeight = parseFloat(weightData[0].Weight);
+  const currentWeight = parseFloat(weightData[weightData.length - 1].Weight);
+  
+  // Create dataset for weight progression
+  const labels = weightData.map(r => formatDate(r.Date));
+  const weights = weightData.map(r => parseFloat(r.Weight));
+  
+  // Create target line (flat line at goal value)
+  const targetLine = Array(weights.length).fill(goalValue);
+  
+  charts.weightGoal = new Chart(canvasEl, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Your Weight',
+          data: weights,
+          borderColor: COLORS.accent,
+          backgroundColor: COLORS.accent + '15',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 5,
+          pointBackgroundColor: COLORS.accent,
+          pointBorderColor: '#111',
+          pointBorderWidth: 2,
+          borderWidth: 2.5
+        },
+        {
+          label: 'Goal',
+          data: targetLine,
+          borderColor: COLORS.green,
+          borderDash: [5, 5],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          tension: 0
+        },
+        {
+          label: 'Starting Weight',
+          data: Array(weights.length).fill(startWeight),
+          borderColor: COLORS.muted,
+          borderDash: [3, 3],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+          tension: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { 
+          display: true,
+          position: 'top',
+          labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
+        },
+        tooltip: { backgroundColor: '#0a0a0a', borderColor: '#262626', borderWidth: 1, titleColor: '#f5f5f5', bodyColor: '#b0b0b0' }
+      },
+      scales: {
+        y: { 
+          grid: { color: COLORS.grid },
+          title: { display: true, text: 'Weight (kg)' }
+        },
+        x: { 
+          grid: { display: false }
+        }
+      }
+    }
   });
 }
 
@@ -788,10 +1056,9 @@ async function loadInsights() {
     const data = await res.json();
     insightsLoaded = true;
     if (!data.length) { list.innerHTML = '<p class="muted">No insights available yet. Log more sessions to get personalized coaching.</p>'; return; }
-    const icons = { success: '↑', warning: '!', info: 'i' };
     list.innerHTML = data.map(d => {
       const type = d.type || 'info';
-      return `<div class="insight-card type-${type}"><div class="insight-icon">${icons[type] || 'i'}</div><div class="insight-body"><h4>${d.title || 'Insight'}</h4><p>${d.text || d.body || ''}</p></div></div>`;
+      return `<div class="insight-card type-${type}"><div class="insight-body"><h4>${d.title || 'Insight'}</h4><p>${d.text || d.body || ''}</p></div></div>`;
     }).join('');
 
     const completed = Array.isArray(trainingData) ? trainingData.filter(r => r.Date) : [];
@@ -818,6 +1085,11 @@ function destroyChart(key) {
 function openModal(id) {
   const modal = document.getElementById(id);
   if (modal) {
+    // Close FAB menu if open
+    const fabMenu = document.getElementById('fab-menu');
+    if (fabMenu) {
+      fabMenu.classList.remove('active');
+    }
     modal.style.display = 'flex';
     modal.offsetHeight; // trigger reflow
     modal.classList.add('modal-show');
@@ -834,7 +1106,28 @@ function closeModal(id) {
   }
 }
 
+function toggleFabMenu() {
+  const fabMenu = document.getElementById('fab-menu');
+  if (fabMenu) {
+    fabMenu.classList.toggle('active');
+  }
+}
+
+// Close FAB menu when any option is clicked
+function initFabMenu() {
+  const fabOptions = document.querySelectorAll('.fab-option');
+  fabOptions.forEach(option => {
+    option.addEventListener('click', () => {
+      const fabMenu = document.getElementById('fab-menu');
+      if (fabMenu) {
+        fabMenu.classList.remove('active');
+      }
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  initFabMenu();
   const formTrainingModal = document.getElementById('form-training-modal');
   if (formTrainingModal) {
     formTrainingModal.addEventListener('submit', async e => {
@@ -903,36 +1196,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Function to get exercises from loaded data (Excel file)
-  function getExercisesForMuscleGroup(muscleGroup) {
-    console.log('[getExercises] Muscle group:', muscleGroup, 'Available:', Object.keys(LOADED_EXERCISES));
-    // First try to use exercises loaded from Excel/API
-    if (LOADED_EXERCISES[muscleGroup]) {
-      const exercises = LOADED_EXERCISES[muscleGroup];
-      console.log('[getExercises] Found', exercises.length, 'exercises for', muscleGroup);
-      return exercises;
+  const formWeightGoalModal = document.getElementById('form-weight-goal-modal');
+  if (formWeightGoalModal) {
+    formWeightGoalModal.addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const goal = parseFloat(fd.get('WeightGoal'));
+    const msg = document.getElementById('msg-weight-goal-modal');
+    
+    if (isNaN(goal) || goal <= 0) {
+      msg.textContent = 'Please enter a valid weight goal';
+      msg.className = 'form-msg error';
+      return;
     }
-    // Fallback to exercises from logged training data
-    const existing = Array.isArray(trainingData) ? [...new Set(trainingData.map(r => r.Exercise).filter(Boolean))].sort() : [];
-    console.log('[getExercises] Fallback: found', existing.length, 'exercises from training data');
-    return existing;
+    
+    localStorage.setItem('WEIGHT_GOAL', goal);
+    msg.textContent = 'Weight goal saved successfully';
+    msg.className = 'form-msg success';
+    setTimeout(() => {
+      e.target.reset();
+      loadData();
+      closeModal('modal-weight-goal');
+    }, 500);
+    });
   }
 
-  // Populate exercise dropdown based on Muscle Group selection
+  // Function to get exercises from WORKOUT_PLAN for the selected day
+  function getExercisesForDay(dayKey) {
+    if (!dayKey || !WORKOUT_PLAN[dayKey]) {
+      console.log('[getExercises] Invalid day:', dayKey);
+      return [];
+    }
+    const dayExercises = WORKOUT_PLAN[dayKey].exercises.map(ex => ex.name);
+    console.log('[getExercises] Found', dayExercises.length, 'exercises for', dayKey);
+    return dayExercises;
+  }
+
+  // Populate exercise dropdown based on Day selection
+  const daySelect = document.querySelector('#form-training-modal select[name="Day"]');
   const muscleGroupSelect = document.querySelector('#form-training-modal select[name="Muscle Group"]');
   const exerciseSelect = document.querySelector('#form-training-modal select[name="Exercise"]');
   
-  if (muscleGroupSelect && exerciseSelect) {
+  if (daySelect && exerciseSelect) {
     const updateExercises = () => {
-      const muscleGroup = muscleGroupSelect.value;
-      console.log('[dropdown] Muscle group changed to:', muscleGroup);
-      const exercises = muscleGroup ? getExercisesForMuscleGroup(muscleGroup) : [...new Set((Array.isArray(trainingData) ? trainingData : []).map(r => r.Exercise).filter(Boolean))].sort();
+      const dayKey = daySelect.value;
+      console.log('[dropdown] Day changed to:', dayKey);
+      const exercises = dayKey ? getExercisesForDay(dayKey) : [];
       console.log('[dropdown] Updating with', exercises.length, 'exercises');
       exerciseSelect.innerHTML = '<option value="">Select exercise...</option>' + exercises.map(e => `<option value="${e}">${e}</option>`).join('');
     };
     
-    muscleGroupSelect.addEventListener('change', updateExercises);
-    console.log('[dropdown] Event listener registered');
+    daySelect.addEventListener('change', updateExercises);
+    console.log('[dropdown] Event listener registered for Day changes');
     
     // When modal opens, update exercises
     document.addEventListener('click', e => {
