@@ -40,6 +40,14 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
 
+# Initialize database tables on startup
+with app.app_context():
+    try:
+        db.create_all()
+        print("✓ Database tables ready")
+    except Exception as e:
+        print(f"⚠ Warning initializing database: {e}")
+
 
 # Global error handler - return JSON instead of HTML for all errors
 @app.errorhandler(Exception)
