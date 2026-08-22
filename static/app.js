@@ -195,25 +195,26 @@ function computeAnalytics(trainingData, weightData, stepsData) {
   // Weight goal
   const weightGoal = parseFloat(localStorage.getItem('WEIGHT_GOAL')) || null;
   if (weightGoal && weightData.length > 0) {
+    const startingWeight = parseFloat(weightData[0].Weight);
     const currentWeight = parseFloat(weightData[weightData.length - 1].Weight);
     const remaining = weightGoal - currentWeight;
-    const progress = ((currentWeight - weightData[0].Weight) / (weightGoal - weightData[0].Weight) * 100);
+    const progress = ((currentWeight - startingWeight) / (weightGoal - startingWeight) * 100);
     analytics.weightGoal = {
+      starting: startingWeight,
       target: weightGoal,
       current: currentWeight,
       remaining,
       progress: Math.max(0, Math.min(100, progress)),
-      direction: remaining > 0 ? 'lose' : 'gain',
+      direction: remaining < 0 ? 'lose' : 'gain',
       remainingAbsolute: Math.abs(remaining)
     };
   }
   
-  // Steps analytics
+  // Steps analytics - 7-day rolling average
   if (stepsData.length > 0) {
-    const recentSteps = stepsData.slice(-30).map(r => parseFloat(r.Steps) || 0);
-    const avgSteps = Math.round(recentSteps.reduce((a, b) => a + b, 0) / recentSteps.length);
+    const last7Days = stepsData.slice(-7).map(r => parseFloat(r.Steps) || 0);
+    const avgSteps = Math.round(last7Days.reduce((a, b) => a + b, 0) / last7Days.length);
     analytics.stepsAverage = avgSteps;
-    analytics.stepsStatus = avgSteps >= 10000 ? 'On track!' : `${10000 - avgSteps} steps behind`;
   }
   
   return analytics;
@@ -242,8 +243,10 @@ function renderAnalyticsDashboard(analytics) {
   if (goalEl && analytics.weightGoal) {
     const goal = analytics.weightGoal;
     goalEl.textContent = goal.target.toFixed(1) + ' kg';
-    goalProgressEl.textContent = `${goal.remainingAbsolute.toFixed(1)} kg to ${goal.direction === 'lose' ? 'lose' : 'gain'}`;
-    goalProgressEl.className = 'stat-delta ' + (goal.remaining > 0 ? '' : 'positive');
+    goalProgressEl.textContent = `${goal.remainingAbsolute.toFixed(1)} kg to ${goal.direction}`;
+    // Positive styling: when goal has been reached
+    const isPositive = goal.direction === 'lose' ? goal.current <= goal.target : goal.current >= goal.target;
+    goalProgressEl.className = 'stat-delta ' + (isPositive ? 'positive' : '');
   }
   
   // Muscle group breakdown
@@ -294,24 +297,27 @@ function renderAnalyticsDashboard(analytics) {
   // Weight goal
   if (analytics.weightGoal) {
     const goal = analytics.weightGoal;
+    document.getElementById('goal-starting').textContent = goal.starting.toFixed(1) + ' kg';
     document.getElementById('goal-current').textContent = goal.current.toFixed(1) + ' kg';
     document.getElementById('goal-target').textContent = goal.target.toFixed(1) + ' kg';
-    document.getElementById('goal-remaining').textContent = goal.remainingAbsolute.toFixed(1) + ' kg';
+    
+    // Goal reached when current weight has reached the target
+    const goalReached = goal.direction === 'lose' ? goal.current <= goal.target : goal.current >= goal.target;
     document.getElementById('goal-status').textContent = 
-      goal.remaining <= 0 
+      goalReached
         ? '✅ GOAL REACHED! Awesome work!'
-        : `${goal.remainingAbsolute.toFixed(1)} kg to ${goal.direction === 'lose' ? 'lose' : 'gain'}`;
+        : `${goal.remainingAbsolute.toFixed(1)} kg to ${goal.direction}`;
   } else {
     document.getElementById('goal-status').textContent = 'Set a weight goal to track your progress';
   }
   
-  // Steps
+  // Steps - show 7-day average only
   if (analytics.stepsAverage) {
     const stepsEl = document.getElementById('stat-steps-avg-value');
     const statusEl = document.getElementById('stat-steps-status');
     stepsEl.textContent = analytics.stepsAverage.toLocaleString();
-    statusEl.textContent = analytics.stepsStatus;
-    statusEl.className = 'stat-delta ' + (analytics.stepsAverage >= 10000 ? 'positive' : '');
+    statusEl.textContent = 'Last 7 days';
+    statusEl.className = 'stat-delta';
   }
   
   // BMI Calculation
@@ -473,16 +479,6 @@ function renderOverview() {
     const weightDate = document.getElementById('stat-weight-delta');
     weightDate.textContent = `as of ${formatDate(latest.Date)}`;
     weightDate.className = 'stat-delta';
-    if (weightData.length > 1) {
-      const prev = weightData[weightData.length - 2];
-      const delta = latest.Weight - prev.Weight;
-      const dateSpan = document.createElement('span');
-      dateSpan.textContent = ` (${delta >= 0 ? '+' : ''}${delta.toFixed(1)} kg)`;
-      dateSpan.style.fontSize = '0.75rem';
-      dateSpan.style.marginLeft = '6px';
-      weightDate.textContent = `as of ${formatDate(latest.Date)}`;
-      weightDate.appendChild(dateSpan);
-    }
   } else {
     document.getElementById('stat-weight').textContent = '–';
     const weightDate = document.getElementById('stat-weight-delta');
@@ -605,6 +601,10 @@ function renderStepsChart() {
   destroyChart('steps');
   if (!stepsData.length) return;
   const sorted = [...stepsData].sort((a, b) => a.Date.localeCompare(b.Date));
+  
+  // Calculate average for the chart
+  const avgSteps = Math.round(sorted.map(r => parseFloat(r.Steps) || 0).reduce((a, b) => a + b, 0) / sorted.length);
+  
   charts.steps = new Chart(document.getElementById('chart-steps'), {
     type: 'bar',
     data: {
@@ -615,13 +615,26 @@ function renderStepsChart() {
         backgroundColor: sorted.map(r => r.Steps >= 10000 ? COLORS.green + 'cc' : COLORS.blue + 'cc'),
         borderRadius: 6,
         borderSkipped: false,
+        type: 'bar',
+        order: 2
+      }, {
+        label: 'Average',
+        data: sorted.map(() => avgSteps),
+        borderColor: COLORS.orange,
+        borderWidth: 2,
+        borderDash: [5, 5],
+        fill: false,
+        type: 'line',
+        order: 1,
+        pointRadius: 0,
+        tension: 0.4
       }]
     },
     options: {
       responsive: true,
       plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ctx.parsed.y.toLocaleString() + ' steps' } }
+        legend: { display: true, labels: { usePointStyle: true } },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y.toLocaleString() + (ctx.dataset.label === 'Average' ? ' avg' : ' steps') } }
       },
       scales: {
         y: { beginAtZero: true, grid: { color: COLORS.grid }, ticks: { callback: v => v >= 1000 ? (v/1000) + 'k' : v } },
