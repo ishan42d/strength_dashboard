@@ -40,6 +40,28 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
 
+# Cache control headers - prevent mobile browser caching issues
+@app.after_request
+def set_cache_headers(response):
+    """Set appropriate cache headers for different file types."""
+    if response.content_type and 'text/html' in response.content_type:
+        # HTML: no cache, always check server for latest version
+        response.cache_control.no_cache = True
+        response.cache_control.no_store = True
+        response.cache_control.must_revalidate = True
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    elif response.content_type and ('text/css' in response.content_type or 'application/javascript' in response.content_type):
+        # CSS/JS: cache for 1 hour (3600 seconds), but revalidate after
+        response.cache_control.max_age = 3600
+        response.cache_control.public = True
+    elif response.content_type and 'application/json' in response.content_type:
+        # API responses: never cache
+        response.cache_control.no_cache = True
+        response.cache_control.no_store = True
+        response.headers['Pragma'] = 'no-cache'
+    return response
+
 # Initialize database tables on startup
 with app.app_context():
     try:
