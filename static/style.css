@@ -239,6 +239,7 @@ body {
   gap: 4px;
 }
 .stat-delta.positive { color: var(--green); }
+.stat-delta.amber { color: var(--amber); }
 .stat-delta.negative { color: var(--red); }
 
 .stat-edit-btn {

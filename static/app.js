@@ -374,13 +374,13 @@ function renderAnalyticsDashboard(analytics) {
         whrCategory = 'Excellent';
         whrClass = 'positive';
       } else if (whr < 0.5) {
-        whrCategory = 'Good';
+        whrCategory = 'Lower Risk';
         whrClass = 'positive';
       } else if (whr < 0.6) {
-        whrCategory = 'At Risk';
-        whrClass = 'negative';
+        whrCategory = 'Increased Risk';
+        whrClass = 'amber';
       } else {
-        whrCategory = 'High Risk';
+        whrCategory = 'Higher Risk';
         whrClass = 'negative';
       }
       
@@ -1242,6 +1242,19 @@ function openModal(id) {
     if (fabMenu) {
       fabMenu.classList.remove('active');
     }
+    
+    // Update weight display if opening measurements modal
+    if (id === 'modal-measurements') {
+      const displayWeight = document.getElementById('display-weight');
+      const displayWeightDate = document.getElementById('display-weight-date');
+      if (weightData && weightData.length > 0) {
+        const lastWeight = weightData[weightData.length - 1];
+        const weightValue = parseFloat(lastWeight.Weight);
+        displayWeight.textContent = weightValue.toFixed(1) + ' kg';
+        displayWeightDate.textContent = 'as of ' + formatDate(lastWeight.Date);
+      }
+    }
+    
     modal.style.display = 'flex';
     modal.offsetHeight; // trigger reflow
     modal.classList.add('modal-show');
@@ -1375,23 +1388,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const formMeasurements = document.getElementById('form-measurements');
   if (formMeasurements) {
-    // Load saved measurements on modal open
+    // Load saved height on modal open
     const heightInput = document.getElementById('input-height');
-    const waistInput = document.getElementById('input-waist');
     const savedHeight = localStorage.getItem('USER_HEIGHT');
-    const savedWaist = localStorage.getItem('USER_WAIST');
     if (savedHeight) heightInput.value = savedHeight;
-    if (savedWaist) waistInput.value = savedWaist;
 
     formMeasurements.addEventListener('submit', async e => {
       e.preventDefault();
       const fd = new FormData(e.target);
       const height = parseFloat(fd.get('height'));
-      const waistInches = parseFloat(fd.get('waist'));
       const msg = document.getElementById('msg-measurements');
       
-      if (isNaN(height) || height <= 0 || isNaN(waistInches) || waistInches <= 0) {
-        msg.textContent = 'Please enter valid measurements';
+      if (isNaN(height) || height <= 0) {
+        msg.textContent = 'Please enter a valid height';
         msg.className = 'form-msg error';
         return;
       }
@@ -1401,25 +1410,72 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch('/api/measurements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ height, waist: waistInches })
+          body: JSON.stringify({ height })
         });
         
         if (!res.ok) {
           const error = await res.json();
-          throw new Error(error.error || 'Failed to save measurements');
+          throw new Error(error.error || 'Failed to save height');
         }
         
         // Save to localStorage
         localStorage.setItem('USER_HEIGHT', height);
-        localStorage.setItem('USER_WAIST', waistInches); // Store in inches
-        msg.textContent = 'Measurements saved successfully';
+        msg.textContent = 'Height saved successfully';
         msg.className = 'form-msg success';
         setTimeout(() => {
           loadData();
           closeModal('modal-measurements');
         }, 500);
       } catch (err) {
-        msg.textContent = err.message || 'Failed to save measurements';
+        msg.textContent = err.message || 'Failed to save height';
+        msg.className = 'form-msg error';
+      }
+    });
+  }
+
+  // Waist Circumference form
+  const formWaist = document.getElementById('form-waist');
+  if (formWaist) {
+    // Load saved waist on modal open
+    const waistInput = document.getElementById('input-waist');
+    const savedWaist = localStorage.getItem('USER_WAIST');
+    if (savedWaist) waistInput.value = savedWaist;
+
+    formWaist.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const waistInches = parseFloat(fd.get('waist'));
+      const msg = document.getElementById('msg-waist');
+      
+      if (isNaN(waistInches) || waistInches <= 0) {
+        msg.textContent = 'Please enter a valid waist measurement';
+        msg.className = 'form-msg error';
+        return;
+      }
+      
+      try {
+        // Save to backend
+        const res = await fetch('/api/measurements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ waist: waistInches })
+        });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || 'Failed to save waist');
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('USER_WAIST', waistInches);
+        msg.textContent = 'Waist measurement saved successfully';
+        msg.className = 'form-msg success';
+        setTimeout(() => {
+          loadData();
+          closeModal('modal-waist');
+        }, 500);
+      } catch (err) {
+        msg.textContent = err.message || 'Failed to save waist';
         msg.className = 'form-msg error';
       }
     });

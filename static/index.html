@@ -108,7 +108,7 @@
         <div class="stat-card">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
             <div class="stat-label">Waist/Height</div>
-            <button class="stat-edit-btn" onclick="openModal('modal-measurements')" title="Edit measurements">
+            <button class="stat-edit-btn" onclick="openModal('modal-waist')" title="Edit waist circumference">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
           </div>
@@ -319,22 +319,41 @@
   <div id="modal-measurements" class="modal" onclick="if(event.target===this)closeModal('modal-measurements')">
     <div class="modal-content">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-        <h3 style="font-size:1.2rem;font-weight:700">Body Measurements</h3>
+        <h3 style="font-size:1.2rem;font-weight:700">Height (for BMI)</h3>
         <button style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.5rem" onclick="closeModal('modal-measurements')">×</button>
       </div>
       <form id="form-measurements" style="display:grid;gap:16px">
         <div>
-          <label>Height (cm) <span style="color:var(--text-3);font-size:0.85rem">Set once</span></label>
-          <input type="number" step="0.1" name="height" id="input-height" placeholder="e.g., 180" required>
-          <p style="font-size:0.8rem;color:var(--text-3);margin-top:4px">Your height remains constant unless updated</p>
+          <label style="font-size:0.85rem;color:var(--text-3)">Current Weight</label>
+          <div style="font-size:1.2rem;font-weight:600;color:var(--text)" id="display-weight">–</div>
+          <p style="font-size:0.75rem;color:var(--text-4);margin-top:4px" id="display-weight-date"></p>
         </div>
         <div>
-          <label>Waist Circumference (inches)</label>
-          <input type="number" step="0.1" name="waist" id="input-waist" placeholder="e.g., 33.5" required>
-          <p style="font-size:0.8rem;color:var(--text-3);margin-top:4px">Measured at navel level. Update as body composition changes</p>
+          <label>Height (cm) <span style="color:var(--text-3);font-size:0.85rem">Required for BMI</span></label>
+          <input type="number" step="0.1" name="height" id="input-height" placeholder="e.g., 180" required>
+          <p style="font-size:0.8rem;color:var(--text-3);margin-top:4px">Your height for BMI calculation</p>
         </div>
-        <button type="submit" class="btn-primary">Save Measurements</button>
+        <button type="submit" class="btn-primary">Save Height</button>
         <div class="form-msg" id="msg-measurements"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- WAIST CIRCUMFERENCE MODAL (Waist-to-Height Ratio) -->
+  <div id="modal-waist" class="modal" onclick="if(event.target===this)closeModal('modal-waist')">
+    <div class="modal-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 style="font-size:1.2rem;font-weight:700">Waist Circumference</h3>
+        <button style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.5rem" onclick="closeModal('modal-waist')">×</button>
+      </div>
+      <form id="form-waist" style="display:grid;gap:16px">
+        <div>
+          <label>Waist Circumference (inches) <span style="color:var(--text-3);font-size:0.85rem">Required for WHR</span></label>
+          <input type="number" step="0.1" name="waist" id="input-waist" placeholder="e.g., 32" required>
+          <p style="font-size:0.8rem;color:var(--text-3);margin-top:4px">Measured at navel level. Used for Waist-to-Height Ratio</p>
+        </div>
+        <button type="submit" class="btn-primary">Save Waist</button>
+        <div class="form-msg" id="msg-waist"></div>
       </form>
     </div>
   </div>
