@@ -192,7 +192,7 @@ body {
    ───────────────────────────────────── */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   gap: 0;
   margin-bottom: 32px;
   background: var(--bg-card);
@@ -240,6 +240,29 @@ body {
 }
 .stat-delta.positive { color: var(--green); }
 .stat-delta.negative { color: var(--red); }
+
+.stat-edit-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition), transform var(--transition);
+}
+.stat-edit-btn:hover {
+  color: var(--accent);
+  transform: scale(1.15);
+}
+.stat-edit-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
 
 /* ─────────────────────────────────────
    LAYOUT GRIDS

@@ -6,7 +6,7 @@ import pandas as pd
 from flask import Flask, jsonify, request, send_from_directory
 from dotenv import load_dotenv
 
-from models import db, TrainingLog, WeightLog, StepsLog
+from models import db, TrainingLog, WeightLog, StepsLog, Measurements
 from db_utils import (
     load_training_log, load_weight_log, load_steps_log,
     append_training_entry, append_weight_entry, append_steps_entry,
@@ -235,6 +235,50 @@ def get_insights():
         weight_df = load_weight_log()
         return jsonify(generate_insights(log_df, weight_df))
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/measurements", methods=["GET", "POST"])
+def measurements():
+    """Get or save body measurements (height, waist)."""
+    try:
+        if request.method == "POST":
+            data = request.json
+            height = data.get('height')
+            waist = data.get('waist')
+            
+            if height is None or waist is None:
+                return jsonify({"error": "Height and waist are required"}), 400
+            
+            # Create or update measurement entry for today
+            today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            measurement = Measurements.query.filter(db.func.date(Measurements.date) == today.date()).first()
+            
+            if measurement:
+                measurement.height_cm = float(height)
+                measurement.waist_inches = float(waist)
+                measurement.updated_at = datetime.utcnow()
+            else:
+                measurement = Measurements(
+                    height_cm=float(height),
+                    waist_inches=float(waist),
+                    date=today
+                )
+                db.session.add(measurement)
+            
+            db.session.commit()
+            return jsonify({"success": True, "message": "Measurements saved"}), 200
+        
+        else:  # GET
+            # Return latest measurements
+            measurement = Measurements.query.order_by(Measurements.date.desc()).first()
+            if measurement:
+                return jsonify(measurement.to_dict()), 200
+            return jsonify({"error": "No measurements found"}), 404
+    
+    except Exception as e:
+        db.session.rollback()
+        print(f"[measurements] Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 

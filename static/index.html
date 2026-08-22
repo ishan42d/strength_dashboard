@@ -78,12 +78,22 @@
           <div class="stat-delta" id="stat-consistency"></div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Current Weight</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
+            <div class="stat-label">Current Weight</div>
+            <button class="stat-edit-btn" onclick="openModal('modal-weight')" title="Update weight">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
           <div class="stat-value" id="stat-weight">–</div>
           <div class="stat-delta" id="stat-weight-delta"></div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Weight Goal</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
+            <div class="stat-label">Weight Goal</div>
+            <button class="stat-edit-btn" onclick="openModal('modal-weight-goal')" title="Set weight goal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
           <div class="stat-value" id="stat-goal">–</div>
           <div class="stat-delta" id="stat-goal-progress"></div>
         </div>
@@ -91,6 +101,26 @@
           <div class="stat-label">Steps Average</div>
           <div class="stat-value" id="stat-steps-avg-value">–</div>
           <div class="stat-delta" id="stat-steps-status"></div>
+        </div>
+        <div class="stat-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
+            <div class="stat-label">BMI</div>
+            <button class="stat-edit-btn" onclick="openModal('modal-measurements')" title="Edit measurements">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
+          <div class="stat-value" id="stat-bmi">–</div>
+          <div class="stat-delta" id="stat-bmi-status"></div>
+        </div>
+        <div class="stat-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
+            <div class="stat-label">Waist/Height</div>
+            <button class="stat-edit-btn" onclick="openModal('modal-measurements')" title="Edit measurements">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
+          <div class="stat-value" id="stat-whr">–</div>
+          <div class="stat-delta" id="stat-whr-status"></div>
         </div>
       </div>
 
@@ -288,6 +318,30 @@
         <p style="font-size:0.85rem;color:var(--text-3)">Set the weight you're aiming for. This will help track your progress.</p>
         <button type="submit" class="btn-primary">Save Goal</button>
         <div class="form-msg" id="msg-weight-goal-modal"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MEASUREMENTS MODAL (BMI & Waist-to-Height Ratio) -->
+  <div id="modal-measurements" class="modal" onclick="if(event.target===this)closeModal('modal-measurements')">
+    <div class="modal-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 style="font-size:1.2rem;font-weight:700">Body Measurements</h3>
+        <button style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.5rem" onclick="closeModal('modal-measurements')">×</button>
+      </div>
+      <form id="form-measurements" style="display:grid;gap:16px">
+        <div>
+          <label>Height (cm) <span style="color:var(--text-3);font-size:0.85rem">Set once</span></label>
+          <input type="number" step="0.1" name="height" id="input-height" placeholder="e.g., 180" required>
+          <p style="font-size:0.8rem;color:var(--text-3);margin-top:4px">Your height remains constant unless updated</p>
+        </div>
+        <div>
+          <label>Waist Circumference (inches)</label>
+          <input type="number" step="0.1" name="waist" id="input-waist" placeholder="e.g., 33.5" required>
+          <p style="font-size:0.8rem;color:var(--text-3);margin-top:4px">Measured at navel level. Update as body composition changes</p>
+        </div>
+        <button type="submit" class="btn-primary">Save Measurements</button>
+        <div class="form-msg" id="msg-measurements"></div>
       </form>
     </div>
   </div>

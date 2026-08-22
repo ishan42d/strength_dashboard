@@ -81,3 +81,23 @@ class StepsLog(db.Model):
             'Date': self.date.isoformat() if self.date else None,
             'Steps': self.steps,
         }
+
+
+class Measurements(db.Model):
+    """Body measurements (height, waist circumference)."""
+    __tablename__ = 'measurements'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    height_cm = db.Column(db.Float, nullable=True)  # Height in cm (set once)
+    waist_inches = db.Column(db.Float, nullable=True)  # Waist circumference in inches
+    date = db.Column(db.DateTime, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'height_cm': self.height_cm,
+            'waist_inches': self.waist_inches,
+            'date': self.date.isoformat() if self.date else None,
+        }

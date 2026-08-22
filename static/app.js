@@ -302,6 +302,75 @@ function renderAnalyticsDashboard(analytics) {
     statusEl.textContent = analytics.stepsStatus;
     statusEl.className = 'stat-delta ' + (analytics.stepsAverage >= 10000 ? 'positive' : '');
   }
+  
+  // BMI Calculation
+  const height = parseFloat(localStorage.getItem('USER_HEIGHT'));
+  const currentWeight = analytics.weightGoal ? analytics.weightGoal.current : (weightData.length > 0 ? parseFloat(weightData[weightData.length - 1].Weight) : null);
+  
+  if (currentWeight) {
+    localStorage.setItem('CURRENT_WEIGHT', currentWeight);
+  }
+  
+  if (height && currentWeight) {
+    const bmi = currentWeight / ((height / 100) ** 2);
+    const bmiEl = document.getElementById('stat-bmi');
+    const bmiStatusEl = document.getElementById('stat-bmi-status');
+    
+    if (bmiEl) {
+      bmiEl.textContent = bmi.toFixed(1);
+      
+      let bmiCategory = '';
+      let bmiClass = '';
+      if (bmi < 18.5) {
+        bmiCategory = 'Underweight';
+        bmiClass = 'negative';
+      } else if (bmi < 25) {
+        bmiCategory = 'Normal';
+        bmiClass = 'positive';
+      } else if (bmi < 30) {
+        bmiCategory = 'Overweight';
+        bmiClass = 'negative';
+      } else {
+        bmiCategory = 'Obese';
+        bmiClass = 'negative';
+      }
+      
+      bmiStatusEl.textContent = bmiCategory;
+      bmiStatusEl.className = 'stat-delta ' + bmiClass;
+    }
+  }
+  
+  // Waist-to-Height Ratio Calculation
+  const waistInches = parseFloat(localStorage.getItem('USER_WAIST'));
+  if (height && waistInches) {
+    const waistCm = waistInches * 2.54; // Convert inches to cm
+    const whr = waistCm / height; // height is in cm
+    const whrEl = document.getElementById('stat-whr');
+    const whrStatusEl = document.getElementById('stat-whr-status');
+    
+    if (whrEl) {
+      whrEl.textContent = whr.toFixed(2);
+      
+      let whrCategory = '';
+      let whrClass = '';
+      if (whr < 0.4) {
+        whrCategory = 'Excellent';
+        whrClass = 'positive';
+      } else if (whr < 0.5) {
+        whrCategory = 'Good';
+        whrClass = 'positive';
+      } else if (whr < 0.6) {
+        whrCategory = 'At Risk';
+        whrClass = 'negative';
+      } else {
+        whrCategory = 'High Risk';
+        whrClass = 'negative';
+      }
+      
+      whrStatusEl.textContent = whrCategory;
+      whrStatusEl.className = 'stat-delta ' + whrClass;
+    }
+  }
 }
 
 /* ─── LOAD DATA ─── */
@@ -1218,6 +1287,58 @@ document.addEventListener('DOMContentLoaded', () => {
       loadData();
       closeModal('modal-weight-goal');
     }, 500);
+    });
+  }
+
+  const formMeasurements = document.getElementById('form-measurements');
+  if (formMeasurements) {
+    // Load saved measurements on modal open
+    const heightInput = document.getElementById('input-height');
+    const waistInput = document.getElementById('input-waist');
+    const savedHeight = localStorage.getItem('USER_HEIGHT');
+    const savedWaist = localStorage.getItem('USER_WAIST');
+    if (savedHeight) heightInput.value = savedHeight;
+    if (savedWaist) waistInput.value = savedWaist;
+
+    formMeasurements.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const height = parseFloat(fd.get('height'));
+      const waistInches = parseFloat(fd.get('waist'));
+      const msg = document.getElementById('msg-measurements');
+      
+      if (isNaN(height) || height <= 0 || isNaN(waistInches) || waistInches <= 0) {
+        msg.textContent = 'Please enter valid measurements';
+        msg.className = 'form-msg error';
+        return;
+      }
+      
+      try {
+        // Save to backend
+        const res = await fetch('/api/measurements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ height, waist: waistInches })
+        });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || 'Failed to save measurements');
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('USER_HEIGHT', height);
+        localStorage.setItem('USER_WAIST', waistInches); // Store in inches
+        msg.textContent = 'Measurements saved successfully';
+        msg.className = 'form-msg success';
+        setTimeout(() => {
+          loadData();
+          closeModal('modal-measurements');
+        }, 500);
+      } catch (err) {
+        msg.textContent = err.message || 'Failed to save measurements';
+        msg.className = 'form-msg error';
+      }
     });
   }
 
