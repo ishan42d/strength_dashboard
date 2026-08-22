@@ -298,10 +298,12 @@ def measurements():
                     measurement.waist_inches = float(waist)
                 measurement.updated_at = datetime.utcnow()
             else:
-                # Create new measurement with provided fields
+                # Carry forward the most recent known height/waist so a new
+                # day's row doesn't blank out a value that wasn't updated today.
+                latest = Measurements.query.order_by(Measurements.date.desc()).first()
                 measurement = Measurements(
-                    height_cm=float(height) if height is not None else None,
-                    waist_inches=float(waist) if waist is not None else None,
+                    height_cm=float(height) if height is not None else (latest.height_cm if latest else None),
+                    waist_inches=float(waist) if waist is not None else (latest.waist_inches if latest else None),
                     date=today
                 )
                 db.session.add(measurement)
@@ -310,11 +312,24 @@ def measurements():
             return jsonify({"success": True, "message": "Measurements saved"}), 200
         
         else:  # GET
-            # Return latest measurements
+            # Return latest measurements, falling back to the most recent
+            # non-null value for each field independently (in case height and
+            # waist were last updated on different dates).
             measurement = Measurements.query.order_by(Measurements.date.desc()).first()
-            if measurement:
-                return jsonify(measurement.to_dict()), 200
-            return jsonify({"error": "No measurements found"}), 404
+            if not measurement:
+                return jsonify({"error": "No measurements found"}), 404
+            
+            result = measurement.to_dict()
+            if result.get('height_cm') is None:
+                latest_height = Measurements.query.filter(Measurements.height_cm.isnot(None)).order_by(Measurements.date.desc()).first()
+                if latest_height:
+                    result['height_cm'] = latest_height.height_cm
+            if result.get('waist_inches') is None:
+                latest_waist = Measurements.query.filter(Measurements.waist_inches.isnot(None)).order_by(Measurements.date.desc()).first()
+                if latest_waist:
+                    result['waist_inches'] = latest_waist.waist_inches
+            
+            return jsonify(result), 200
     
     except Exception as e:
         db.session.rollback()

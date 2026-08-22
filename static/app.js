@@ -393,14 +393,31 @@ function renderAnalyticsDashboard(analytics) {
 /* ─── LOAD DATA ─── */
 async function loadData() {
   try {
-    const [tRes, wRes, sRes] = await Promise.all([
+    const [tRes, wRes, sRes, mRes] = await Promise.all([
       fetch('/api/training'),
       fetch('/api/weight'),
-      fetch('/api/steps')
+      fetch('/api/steps'),
+      fetch('/api/measurements')
     ]).catch(e => {
       console.error('Fetch error:', e);
-      return [{status: 500}, {status: 500}, {status: 500}];
+      return [{status: 500}, {status: 500}, {status: 500}, {status: 500}];
     });
+
+    // Sync measurements (height/waist) from backend - this is the source of truth
+    // across all devices/browsers, since localStorage doesn't sync between them.
+    if (mRes && mRes.ok) {
+      try {
+        const measurements = await mRes.json();
+        if (measurements.height_cm != null) {
+          localStorage.setItem('USER_HEIGHT', measurements.height_cm);
+        }
+        if (measurements.waist_inches != null) {
+          localStorage.setItem('USER_WAIST', measurements.waist_inches);
+        }
+      } catch (e) {
+        console.error('Error parsing measurements data:', e);
+      }
+    }
     
     // Parse training data
     if (tRes && tRes.ok) {
@@ -1444,7 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Waist Circumference form
+  // Waist Circumference form (backend is source of truth, synced via loadData())
   const formWaist = document.getElementById('form-waist');
   if (formWaist) {
     // Load saved waist on modal open
