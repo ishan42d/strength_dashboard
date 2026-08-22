@@ -967,6 +967,23 @@ select {
   .panel { width: 100%; overflow-x: hidden; }
 }
 
+/* Weight Goal Progress responsive on mobile */
+@media (max-width: 820px) {
+  /* Summary stats: 2-column on tablet/mobile, 1-column on tiny phones */
+  div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  
+  /* Chart container: reduce height on mobile */
+  div[style*="height: 240px"] {
+    height: 200px !important;
+  }
+  
+  #chart-weight-goal {
+    max-height: 200px !important;
+  }
+}
+
 /* Extra tight for smallest phones */
 @media (max-width: 380px) {
   .stat-value { font-size: 1.1rem; }
@@ -981,6 +998,20 @@ select {
   .quick-log-buttons .btn-primary {
     flex: 1;
     min-width: calc(50% - 4px);
+  }
+  
+  /* Summary stats: stack to 1 column on tiny screens */
+  div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Chart container: smaller on tiny phones */
+  div[style*="height: 240px"] {
+    height: 160px !important;
+  }
+  
+  #chart-weight-goal {
+    max-height: 160px !important;
   }
 }
 
