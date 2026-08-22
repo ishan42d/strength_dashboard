@@ -134,12 +134,23 @@ async function loadAIInsights() {
 function computeAnalytics(trainingData, weightData, stepsData) {
   const analytics = {};
   
+  // Ensure data is arrays
+  if (!Array.isArray(trainingData)) trainingData = [];
+  if (!Array.isArray(weightData)) weightData = [];
+  if (!Array.isArray(stepsData)) stepsData = [];
+  
   // Training volume & frequency
-  const allSessions = trainingData.filter(r => r.Date).sort((a, b) => new Date(b.Date) - new Date(a.Date));
+  const allSessions = trainingData.filter(r => r && r.Date).sort((a, b) => new Date(b.Date) - new Date(a.Date));
+  
+  // Only compute weeks if we have data
+  let weeksOfData = 1;
+  if (allSessions.length > 1) {
+    weeksOfData = Math.max(1, Math.ceil((new Date(allSessions[0].Date) - new Date(allSessions[allSessions.length - 1].Date)) / (7 * 24 * 60 * 60 * 1000)));
+  }
+  
   const thisWeekStart = new Date();
   thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
   const thisWeekSessions = allSessions.filter(r => new Date(r.Date) >= thisWeekStart).length;
-  const weeksOfData = Math.max(1, Math.ceil((new Date(allSessions[0].Date) - new Date(allSessions[allSessions.length - 1].Date)) / (7 * 24 * 60 * 60 * 1000)));
   
   analytics.thisWeekVolume = thisWeekSessions;
   analytics.avgWorkoutsPerWeek = (allSessions.length / weeksOfData).toFixed(1);
@@ -377,36 +388,55 @@ function renderAnalyticsDashboard(analytics) {
 async function loadData() {
   try {
     const [tRes, wRes, sRes] = await Promise.all([
-      fetch('/api/training').catch(e => ({status: 500, json: () => []})),
-      fetch('/api/weight').catch(e => ({status: 500, json: () => []})),
-      fetch('/api/steps').catch(e => ({status: 500, json: () => []}))
-    ]);
+      fetch('/api/training'),
+      fetch('/api/weight'),
+      fetch('/api/steps')
+    ]).catch(e => {
+      console.error('Fetch error:', e);
+      return [{status: 500}, {status: 500}, {status: 500}];
+    });
     
-    try {
-      trainingData = (await tRes.json()) || [];
-    } catch (e) {
-      console.error('Error parsing training data:', e);
+    // Parse training data
+    if (tRes && tRes.ok) {
+      try {
+        trainingData = await tRes.json();
+        if (!Array.isArray(trainingData)) trainingData = [];
+      } catch (e) {
+        console.error('Error parsing training data:', e);
+        trainingData = [];
+      }
+    } else {
+      console.warn('Training API error:', tRes?.status);
       trainingData = [];
     }
     
-    try {
-      weightData = (await wRes.json()) || [];
-    } catch (e) {
-      console.error('Error parsing weight data:', e);
+    // Parse weight data
+    if (wRes && wRes.ok) {
+      try {
+        weightData = await wRes.json();
+        if (!Array.isArray(weightData)) weightData = [];
+      } catch (e) {
+        console.error('Error parsing weight data:', e);
+        weightData = [];
+      }
+    } else {
+      console.warn('Weight API error:', wRes?.status);
       weightData = [];
     }
     
-    try {
-      stepsData = (await sRes.json()) || [];
-    } catch (e) {
-      console.error('Error parsing steps data:', e);
+    // Parse steps data
+    if (sRes && sRes.ok) {
+      try {
+        stepsData = await sRes.json();
+        if (!Array.isArray(stepsData)) stepsData = [];
+      } catch (e) {
+        console.error('Error parsing steps data:', e);
+        stepsData = [];
+      }
+    } else {
+      console.warn('Steps API error:', sRes?.status);
       stepsData = [];
     }
-    
-    // Ensure they're arrays even if API returns error objects
-    if (!Array.isArray(trainingData)) trainingData = [];
-    if (!Array.isArray(weightData)) weightData = [];
-    if (!Array.isArray(stepsData)) stepsData = [];
     
     renderOverview();
     renderStrengthTable();
