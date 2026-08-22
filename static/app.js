@@ -375,19 +375,54 @@ function renderAnalyticsDashboard(analytics) {
 
 /* ─── LOAD DATA ─── */
 async function loadData() {
-  const [tRes, wRes, sRes] = await Promise.all([fetch('/api/training'), fetch('/api/weight'), fetch('/api/steps')]);
-  trainingData = (await tRes.json()) || [];
-  weightData = (await wRes.json()) || [];
-  stepsData = (await sRes.json()) || [];
-  
-  // Ensure they're arrays even if API returns error objects
-  if (!Array.isArray(trainingData)) trainingData = [];
-  if (!Array.isArray(weightData)) weightData = [];
-  if (!Array.isArray(stepsData)) stepsData = [];
-  
-  renderOverview();
-  renderStrengthTable();
-  renderWeightTab();
+  try {
+    const [tRes, wRes, sRes] = await Promise.all([
+      fetch('/api/training').catch(e => ({status: 500, json: () => []})),
+      fetch('/api/weight').catch(e => ({status: 500, json: () => []})),
+      fetch('/api/steps').catch(e => ({status: 500, json: () => []}))
+    ]);
+    
+    try {
+      trainingData = (await tRes.json()) || [];
+    } catch (e) {
+      console.error('Error parsing training data:', e);
+      trainingData = [];
+    }
+    
+    try {
+      weightData = (await wRes.json()) || [];
+    } catch (e) {
+      console.error('Error parsing weight data:', e);
+      weightData = [];
+    }
+    
+    try {
+      stepsData = (await sRes.json()) || [];
+    } catch (e) {
+      console.error('Error parsing steps data:', e);
+      stepsData = [];
+    }
+    
+    // Ensure they're arrays even if API returns error objects
+    if (!Array.isArray(trainingData)) trainingData = [];
+    if (!Array.isArray(weightData)) weightData = [];
+    if (!Array.isArray(stepsData)) stepsData = [];
+    
+    renderOverview();
+    renderStrengthTable();
+    renderWeightTab();
+  } catch (error) {
+    console.error('Error in loadData:', error);
+    // Initialize empty arrays to prevent crashes
+    trainingData = [];
+    weightData = [];
+    stepsData = [];
+    try {
+      renderOverview();
+    } catch (e) {
+      console.error('Error rendering overview with empty data:', e);
+    }
+  }
 }
 
 /* ─── OVERVIEW ─── */
@@ -418,6 +453,11 @@ function renderOverview() {
       weightDate.textContent = `as of ${formatDate(latest.Date)}`;
       weightDate.appendChild(dateSpan);
     }
+  } else {
+    document.getElementById('stat-weight').textContent = '–';
+    const weightDate = document.getElementById('stat-weight-delta');
+    weightDate.textContent = 'Log weight in Body tab';
+    weightDate.className = 'stat-delta muted';
   }
 
   renderVolumeChart(completed);

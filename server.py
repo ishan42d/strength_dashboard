@@ -47,6 +47,19 @@ with app.app_context():
         print("✓ Database tables ready")
     except Exception as e:
         print(f"⚠ Warning initializing database: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+# Health check endpoint
+@app.route("/api/health", methods=["GET"])
+def health():
+    try:
+        # Try a simple query to check database connection
+        TrainingLog.query.first()
+        return jsonify({"status": "ok", "database": "connected"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "database": "disconnected", "error": str(e)}), 500
 
 
 # Global error handler - return JSON instead of HTML for all errors
