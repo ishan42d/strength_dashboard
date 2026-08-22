@@ -1255,6 +1255,17 @@ function openModal(id) {
       }
     }
     
+    // Update height display if opening waist modal
+    if (id === 'modal-waist') {
+      const displayHeight = document.getElementById('display-height');
+      const savedHeight = localStorage.getItem('USER_HEIGHT');
+      if (savedHeight) {
+        displayHeight.textContent = savedHeight + ' cm';
+      } else {
+        displayHeight.textContent = '–';
+      }
+    }
+    
     modal.style.display = 'flex';
     modal.offsetHeight; // trigger reflow
     modal.classList.add('modal-show');

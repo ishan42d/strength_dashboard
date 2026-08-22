@@ -253,28 +253,33 @@ def get_insights():
 
 @app.route("/api/measurements", methods=["GET", "POST"])
 def measurements():
-    """Get or save body measurements (height, waist)."""
+    """Get or save body measurements (height, waist). Both optional individually."""
     try:
         if request.method == "POST":
             data = request.json
             height = data.get('height')
             waist = data.get('waist')
             
-            if height is None or waist is None:
-                return jsonify({"error": "Height and waist are required"}), 400
+            # At least one must be provided
+            if height is None and waist is None:
+                return jsonify({"error": "At least height or waist must be provided"}), 400
             
             # Create or update measurement entry for today
             today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
             measurement = Measurements.query.filter(db.func.date(Measurements.date) == today.date()).first()
             
             if measurement:
-                measurement.height_cm = float(height)
-                measurement.waist_inches = float(waist)
+                # Only update provided fields
+                if height is not None:
+                    measurement.height_cm = float(height)
+                if waist is not None:
+                    measurement.waist_inches = float(waist)
                 measurement.updated_at = datetime.utcnow()
             else:
+                # Create new measurement with provided fields
                 measurement = Measurements(
-                    height_cm=float(height),
-                    waist_inches=float(waist),
+                    height_cm=float(height) if height is not None else None,
+                    waist_inches=float(waist) if waist is not None else None,
                     date=today
                 )
                 db.session.add(measurement)
