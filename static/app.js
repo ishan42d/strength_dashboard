@@ -612,7 +612,7 @@ function renderStepsChart() {
       datasets: [{
         label: 'Steps',
         data: sorted.map(r => r.Steps),
-        backgroundColor: sorted.map(r => r.Steps >= 10000 ? COLORS.green + 'cc' : COLORS.blue + 'cc'),
+        backgroundColor: COLORS.accent + 'cc',
         borderRadius: 6,
         borderSkipped: false,
         type: 'bar',
@@ -620,8 +620,8 @@ function renderStepsChart() {
       }, {
         label: 'Average',
         data: sorted.map(() => avgSteps),
-        borderColor: COLORS.orange,
-        borderWidth: 2,
+        borderColor: COLORS.green,
+        borderWidth: 3,
         borderDash: [5, 5],
         fill: false,
         type: 'line',
